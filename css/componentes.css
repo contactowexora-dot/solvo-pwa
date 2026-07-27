@@ -295,7 +295,7 @@
 
 /* ═══ SNACKBAR (§7.12, §10.2) ═══════════════════════════════════════════════════ */
 .snackbar-zona {
-  position: fixed; z-index: 60;
+  position: fixed; z-index: 1100;
   left: var(--margen-lateral); right: var(--margen-lateral);
   bottom: calc(var(--sp-4) + var(--h-barra-nav) + var(--sp-3) + var(--hueco-seguro-inf));
   display: flex; flex-direction: column; gap: var(--sp-2);
@@ -329,8 +329,11 @@
 /* ═══ BOTTOM SHEET (§7.8, §10.2) ════════════════════════════════════════════════
    §10.5: el velo entra en 200ms mientras la hoja tarda 260. La oscuridad llega antes
    que el panel y la entrada se siente más asentada. */
+/* Por encima del formulario (z 70), no por debajo. Una hoja siempre se abre DESDE algo, así
+   que tiene que quedar sobre lo que la abrió: con z-index 40 el selector de categoría se
+   pintaba detrás del formulario y no había forma de ver las categorías. */
 .velo {
-  position: fixed; inset: 0; z-index: 40;
+  position: fixed; inset: 0; z-index: 1000;
   background: var(--bg-scrim);
   animation: velo-entra 200ms var(--ease-out) both;
 }
@@ -339,7 +342,7 @@
 @keyframes velo-sale  { from { opacity: 1; } to { opacity: 0; } }
 
 .hoja {
-  position: fixed; z-index: 50;
+  position: fixed; z-index: 1010;
   left: 0; right: 0; bottom: 0;
   max-height: 88dvh; overflow-y: auto;
   padding: var(--sp-3) var(--margen-lateral)
@@ -787,9 +790,20 @@
 
 /* ── Selector de categoría (§9.4) ─────────────────────────────────────────── */
 .lista-cat { display: flex; flex-direction: column; }
-.fila-cat { gap: 0; }
-.chevron-cat { transition: transform var(--d-press) var(--ease-out); }
+.fila-cat {
+  width: 100%; min-height: 56px;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-md);
+  text-align: left;
+}
+.chevron-cat {
+  display: grid; place-items: center; flex: 0 0 auto;
+  color: var(--text-tertiary);
+  transition: transform var(--d-press) var(--ease-out);
+}
 [data-abierta="true"] > .fila-cat .chevron-cat { transform: rotate(180deg); }
+/* La categoría sola va primero y se distingue del resto: es una opción de otro nivel. */
+.lista-sub-toda { color: var(--text-primary); font-weight: 500; }
 
 .lista-sub { display: none; padding-left: var(--sp-10); }
 [data-abierta="true"] > .lista-sub { display: block; }
@@ -820,3 +834,7 @@
   }
   .formulario-pie .btn { max-width: none; }
 }
+
+/* ── Pantalla Productos ───────────────────────────────────────────────────── */
+.fila-producto { min-height: 56px; }
+.fila-producto + .fila-producto { border-top: 1px solid var(--border); }
