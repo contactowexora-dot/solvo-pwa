@@ -72,8 +72,22 @@ const Api = (function () {
     } catch (e) {
       if (e && e.name === 'AbortError') throw new ErrorSolvo('cancelada', { cancelada: true });
       if (esFalloDeRed(e)) {
-        throw new ErrorSolvo('Sin conexión. Lo intentaré de nuevo cuando vuelvas a estar en línea.',
-                             { sinRed: true });
+        // `fetch` lanza el MISMO TypeError si no hay red y si el navegador bloqueó la
+        // respuesta por CORS. Distinguirlos importa muchísimo: decir «sin conexión» a quien
+        // acaba de entrar con Google manda a buscar el problema donde no está.
+        //
+        // El caso real más frecuente es un despliegue publicado con acceso «Solo yo»:
+        // Apps Script redirige a la pantalla de acceso de Google, el navegador la bloquea
+        // por CORS, y `fetch` falla igual que si no hubiera wifi.
+        if (!navigator.onLine) {
+          throw new ErrorSolvo(
+            'Sin conexión. Lo intentaré de nuevo cuando vuelvas a estar en línea.',
+            { sinRed: true });
+        }
+        throw new ErrorSolvo(
+          'No pude hablar con el servidor de Solvo. Casi siempre es una de dos: el despliegue ' +
+          'web no está publicado con acceso «Cualquier persona», o API_URL no apunta al ' +
+          'backend.', { despliegue: true, url: cfg.apiUrl() });
       }
       throw new ErrorSolvo('No pudimos contactar con el servidor. Reintenta.');
     } finally {

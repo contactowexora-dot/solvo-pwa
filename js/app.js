@@ -388,14 +388,57 @@ const App = (function () {
       if (e && e.cancelada) return;
       if (e && (e.sesion || e.sinAcceso)) { Auth.cerrarSesion('rechazada'); return; }
       vista.innerHTML = UI.vacio({
-        icono: 'circle-alert',
-        titulo: 'No pude cargar esta pantalla',
+        icono: e.sinRed ? 'cloud-off' : 'circle-alert',
+        titulo: e.sinRed ? 'Sin conexión' : 'No pude cargar esta pantalla',
         texto: e.message
       });
       vista.querySelector('.vacio').insertAdjacentHTML('beforeend',
         '<button class="btn btn-secundario pulsable" id="reintentar">Reintentar</button>');
       vista.querySelector('#reintentar').addEventListener('click', resolverHash);
+
+      // Cuando el fallo apunta al despliegue, el dato que falta para diagnosticarlo es a
+      // QUÉ URL se está llamando. Sin verla, la única salida es adivinar.
+      if (e.despliegue) vista.insertAdjacentHTML('beforeend', panelDiagnostico(e.url));
     }
+  }
+
+  /**
+   * Qué comprobar cuando el navegador no puede hablar con el backend. Se enseña la URL
+   * completa —es pública por diseño— y un enlace para abrirla: si al abrirla sale el JSON
+   * con «Inicia sesión para continuar», la URL es correcta y el problema es el acceso del
+   * despliegue.
+   */
+  function panelDiagnostico(url) {
+    const u = String(url || window.SOLVO_CONFIG.apiUrl());
+    const esExec = /\/exec$/.test(u);
+    const esDev = /\/dev$/.test(u);
+
+    return '<section class="tarjeta tarjeta-plana pila pila-3" style="margin-top:var(--sp-4)">' +
+      '<h3 class="t-overline txt-2">Qué comprobar</h3>' +
+      '<code class="t-mono" style="background:var(--bg-inset);padding:var(--sp-3);' +
+        'border-radius:var(--r-sm);word-break:break-all">' + UI.esc(u) + '</code>' +
+      (esDev
+        ? '<p class="t-label warn">Esa URL acaba en <b>/dev</b>. La de pruebas exige tu sesión ' +
+          'de Google y nunca funciona desde la app: usa la que acaba en <b>/exec</b>.</p>'
+        : '') +
+      (!esExec && !esDev
+        ? '<p class="t-label warn">Esa URL no acaba en <b>/exec</b>. No es la de un ' +
+          'despliegue web.</p>'
+        : '') +
+      '<ol class="pila pila-2 t-label txt-2" style="padding-left:var(--sp-5);' +
+        'list-style:decimal">' +
+        '<li>Ábrela en otra pestaña. Debe responder ' +
+          '<code class="t-mono">{"ok":false,"error":"Inicia sesión para continuar."}</code></li>' +
+        '<li>Si responde <code class="t-mono">NO</code>, es la URL del Guardián, no la del ' +
+          'backend. Esa nunca va aquí.</li>' +
+        '<li>Si te pide iniciar sesión de Google, el despliegue está como «Solo yo». ' +
+          'Vuelve a publicarlo con <b>Cualquier persona</b>.</li>' +
+      '</ol>' +
+      '<p class="t-caption txt-3">Que la URL te funcione al abrirla <b>no</b> prueba que sea ' +
+        'pública: tu navegador va con tu sesión, y la app no.</p>' +
+      '<a class="btn btn-secundario pulsable" href="' + UI.esc(u) + '" target="_blank" ' +
+        'rel="noopener">Abrir la URL' + UI.ico('chevron-right', 'ico-16') + '</a>' +
+    '</section>';
   }
 
   /** Las pantallas que aún no existen dicen en qué paso llegan, no «404». */
