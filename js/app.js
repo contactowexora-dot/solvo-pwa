@@ -39,10 +39,19 @@ const App = (function () {
       localStorage.setItem('solvo.tema', v);
       const oscuro = v === 'oscuro' ||
         (v === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+      const cambio = document.documentElement.dataset.tema !== (oscuro ? 'oscuro' : 'claro');
       document.documentElement.dataset.tema = oscuro ? 'oscuro' : 'claro';
       // La barra del sistema tiene que ir con el tema o queda una franja blanca arriba.
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.content = oscuro ? '#0B0B0D' : '#F4F4F5';
+      // Los gráficos guardan los colores con los que se dibujaron: hay que rehacerlos o el
+      // canvas se queda con la paleta anterior mientras el resto de la app ya cambió.
+      //
+      // `typeof Graficos` y NO `window.Graficos`: en V8 un `const` de nivel superior vive en
+      // el ámbito léxico del script y **no es propiedad del objeto global**. Es exactamente
+      // la asimetría que dejó las 79 rutas del backend sin resolver en el Paso 3, y aquí
+      // hacía que esta línea no se ejecutara nunca, en silencio.
+      if (cambio && typeof Graficos !== 'undefined') Graficos.retematizarTodos();
       return oscuro;
     },
 
@@ -230,6 +239,15 @@ const App = (function () {
     pintarAvisoRed();
   }
 
+  /** Acciones pendientes. La campana solo existe si hay alguna (§8.1). */
+  let nAcciones = 0;
+
+  function marcarAcciones(n) {
+    const previo = nAcciones;
+    nAcciones = Number(n) || 0;
+    if (previo !== nAcciones) pintarCabecera();
+  }
+
   function pintarCabecera() {
     const cab = document.getElementById('cabecera');
     if (!cab) return;
@@ -243,8 +261,15 @@ const App = (function () {
       '<button class="btn-icono pulsable" data-al="tema" ' +
         'aria-label="' + (oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro') + '">' +
         UI.ico(oscuro ? 'sun' : 'moon') + '</button>' +
-      '<button class="btn-icono pulsable" data-al="acciones" aria-label="Notificaciones">' +
-        UI.ico('bell') + '</button>' +
+      // §8.1: el banner del Centro de Acciones se elimina; queda solo la campana, y
+      // **únicamente cuando hay acciones pendientes**. Sin ellas no se renderiza: un icono
+      // permanente que casi nunca lleva a nada acaba siendo invisible.
+      (nAcciones > 0
+        ? '<button class="btn-icono pulsable campana" data-al="acciones" ' +
+            'aria-label="' + nAcciones + ' acciones pendientes">' + UI.ico('bell') +
+            '<span class="badge">' + (nAcciones > 9 ? '9+' : nAcciones) + '</span>' +
+          '</button>'
+        : '') +
       '<button class="btn-icono pulsable" data-al="cuenta" ' +
         'aria-label="Tu cuenta' + (p ? ': ' + UI.esc(p.correo) : '') + '">' +
         UI.ico('user') + '</button>';
@@ -371,6 +396,10 @@ const App = (function () {
     moverPildora();
     pintarCabecera();
 
+    // ECharts retiene el canvas y sus escuchas. En una app de una sola página que repinta al
+    // navegar, no soltarlos son fugas que se acumulan hasta que el móvil va a tirones.
+    if (typeof Graficos !== 'undefined') Graficos.destruirTodos();
+
     const cont = document.getElementById('contenido');
     cont.innerHTML = '<div class="vista contenedor pila pila-3"' +
                      (atras ? ' data-atras="true"' : '') + '></div>';
@@ -398,7 +427,8 @@ const App = (function () {
 
       // Cuando el fallo apunta al despliegue, el dato que falta para diagnosticarlo es a
       // QUÉ URL se está llamando. Sin verla, la única salida es adivinar.
-      if (e.despliegue) vista.insertAdjacentHTML('beforeend', panelDiagnostico(e.url));
+      if (e.despliegue) vista.insertAdjacentHTML('beforeend',
+        panelDiagnostico(e.url, e.interno));
     }
   }
 
@@ -408,7 +438,7 @@ const App = (function () {
    * con «Inicia sesión para continuar», la URL es correcta y el problema es el acceso del
    * despliegue.
    */
-  function panelDiagnostico(url) {
+  function panelDiagnostico(url, interno) {
     const u = String(url || window.SOLVO_CONFIG.apiUrl());
     const esExec = /\/exec$/.test(u);
     const esDev = /\/dev$/.test(u);
@@ -435,7 +465,10 @@ const App = (function () {
           'Vuelve a publicarlo con <b>Cualquier persona</b>.</li>' +
       '</ol>' +
       '<p class="t-caption txt-3">Que la URL te funcione al abrirla <b>no</b> prueba que sea ' +
-        'pública: tu navegador va con tu sesión, y la app no.</p>' +
+        'pública: tu navegador va con tu sesión, y la app no. Ábrela en una ventana de ' +
+        'incógnito — ahí no hay sesión, igual que en la app.</p>' +
+      (interno ? '<p class="t-caption txt-3">Error interno del navegador: <code ' +
+                 'class="t-mono">' + UI.esc(interno) + '</code></p>' : '') +
       '<a class="btn btn-secundario pulsable" href="' + UI.esc(u) + '" target="_blank" ' +
         'rel="noopener">Abrir la URL' + UI.ico('chevron-right', 'ico-16') + '</a>' +
     '</section>';
@@ -605,6 +638,9 @@ const App = (function () {
     if (!('serviceWorker' in navigator)) return;
     // Con file:// el registro lanza una excepción que oscurece cualquier otro error.
     if (!location.protocol.startsWith('http')) return;
+    // Escotilla para desarrollo: la caché del cascarón sirve los archivos viejos y hace
+    // perder un rato largo persiguiendo un arreglo que ya estaba escrito.
+    if (localStorage.getItem('solvo.sinSW') === '1') return;
 
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
       .then(function (reg) {
@@ -642,6 +678,7 @@ const App = (function () {
     ir: ir,
     recargar: resolverHash,
     registrar: function (ruta, pintar) { PANTALLAS[ruta] = pintar; },
+    marcarAcciones: marcarAcciones,
     plataforma: function () { return plataforma; },
     Tema: Tema
   };
