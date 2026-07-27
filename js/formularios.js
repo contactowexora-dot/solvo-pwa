@@ -175,9 +175,12 @@ const Formularios = (function () {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Hoja con buscador, los cinco de acceso rápido y los dos niveles desplegables. Se puede
-   * elegir una categoría principal sin bajar a subcategoría: obligar a elegir subcategoría
-   * en cada gasto es la clase de fricción que hace que la gente deje de registrar.
+   * Hoja con buscador y los dos niveles desplegables.
+   *
+   * Una categoría **con** subcategorías se elige bajando a una de ellas; una **sin**
+   * subcategorías se elige tocándola. Es decisión del producto: el §9.4 permite quedarse en
+   * la categoría principal, y aquí se prefiere que el dato quede siempre en el nivel más
+   * fino, que es el que después sirve para los insights.
    */
   function elegirCategoria(grupo, actual, alElegir) {
     const cats = categoriasDe(grupo);
@@ -225,8 +228,6 @@ const Formularios = (function () {
               b.parentElement.hidden = !!q && !enCat &&
                 s.nombre.toLowerCase().indexOf(q) < 0;
             });
-            const toda = li.querySelector('.lista-sub-toda');
-            if (toda) toda.parentElement.hidden = !!q && !enCat;
           });
         });
 
@@ -277,11 +278,6 @@ const Formularios = (function () {
       '</button>' +
       (subs.length
         ? '<ul class="lista-sub">' +
-            // Primera opción: la categoría sin bajar a subcategoría. El §9.4 la permite, y
-            // ponerla aquí la hace visible en vez de esconderla en un gesto distinto.
-            '<li><button type="button" class="fila pulsable lista-sub-item lista-sub-toda" ' +
-              'data-solo-cat="' + UI.esc(c.id_categoria) + '">' +
-              '<span class="t-body crece recorta">Toda la categoría</span></button></li>' +
             subs.map(function (s) {
               return '<li><button type="button" class="fila pulsable lista-sub-item" ' +
                 'data-cat="' + UI.esc(c.id_categoria) + '" data-sub="' +

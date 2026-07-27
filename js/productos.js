@@ -13,8 +13,15 @@ App.registrar('productos', async function (vista) {
 
   const d = await Api.llamar('productos.listar', {}, { clave: 'productos' });
   const m = d.moneda_base;
-  const cuentas = d.cuentas || [];
-  const tarjetas = d.tarjetas || [];
+
+  // `productos.listar` devuelve cada grupo como `{ total, items }`, no como un array, y solo
+  // incluye la clave si el grupo tiene algo. Yo leía `d.cuentas.length` sobre el objeto
+  // envolvente: siempre daba `undefined`, así que la pantalla se quedaba para siempre en su
+  // estado vacío aunque la cuenta existiera. Lo confirmaba el hecho de que **sí** aparecía en
+  // los selectores del formulario, que salen de `catalogos` y no de aquí.
+  const cuentas = (d.cuentas && d.cuentas.items) || [];
+  const tarjetas = (d.tarjetas && d.tarjetas.items) || [];
+  const totalCuentas = (d.cuentas && d.cuentas.total) || 0;
 
   if (!cuentas.length && !tarjetas.length) {
     vista.innerHTML = UI.vacio({
@@ -24,9 +31,14 @@ App.registrar('productos', async function (vista) {
              'Sin eso no hay dónde registrar un movimiento.',
       cta: { texto: 'Añadir una cuenta', accion: 'cuenta' }
     });
+    // También la tarjeta desde el estado vacío: quien empieza por la tarjeta no tiene por
+    // qué crear una cuenta primero para encontrar el botón.
+    vista.querySelector('.vacio').insertAdjacentHTML('beforeend',
+      '<button class="btn btn-secundario pulsable" data-accion="tarjeta">' +
+      UI.ico('credit-card', 'ico-16') + 'O una tarjeta</button>');
   } else {
     vista.innerHTML =
-      (cuentas.length ? bloqueCuentas(cuentas, m) : '') +
+      (cuentas.length ? bloqueCuentas(cuentas, totalCuentas, m) : '') +
       (tarjetas.length ? bloqueTarjetas(tarjetas, m) : '') +
       '<div class="fila" style="gap:var(--sp-3)">' +
         '<button class="btn btn-secundario crece pulsable" data-nuevo="cuenta">' +
@@ -45,8 +57,7 @@ App.registrar('productos', async function (vista) {
   });
 });
 
-function bloqueCuentas(cuentas, m) {
-  const total = cuentas.reduce(function (s, c) { return s + (Number(c.saldo_base) || 0); }, 0);
+function bloqueCuentas(cuentas, total, m) {
   return '<section class="seccion">' +
     '<div class="fila-entre seccion-cab">' +
       '<h2 class="t-card-title">Cuentas</h2>' +
@@ -62,8 +73,11 @@ function bloqueCuentas(cuentas, m) {
             UI.esc([c.banco, c.moneda, c.numero_final && '•••' + c.numero_final]
                    .filter(Boolean).join(' · ')) + '</span>' +
         '</span>' +
-        // El saldo negativo se marca: una cuenta en rojo es información, no decoración.
+        // §3.3: el signo va PEGADO al número, no solo el color. Un saldo en descubierto
+        // mostrado como «S/ 120.00» en rojo se lee como 120 a favor si no distingues el tono
+        // —y en una app de dinero eso no es un detalle estético.
         '<span class="t-amount num ' + (c.saldo < 0 ? 'neg' : '') + '">' +
+          (c.saldo < 0 ? '− ' : '') +
           UI.monto(c.saldo, c.moneda, { sinSigno: true }) + '</span>' +
       '</div>';
     }).join('') + '</div>' +
