@@ -1,0 +1,422 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SOLVO — componentes.css
+   Manual 3 §5.1 (cascarón) · §6.1 (íconos) · §7 (componentes) · §10.2 (movimiento)
+
+   Solo lo que el cascarón necesita en el Paso 9. Las piezas de cada pantalla llegan
+   con su pantalla.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ═══ ÍCONOS (§6.1) ═════════════════════════════════════════════════════════════
+   Heredan el color del texto. Los de categoría usan su color propio vía --color-cat. */
+.ico {
+  width: 20px; height: 20px;
+  flex: 0 0 auto;
+  color: inherit;
+  pointer-events: none;   /* el clic pertenece al botón, no al svg */
+}
+.ico-16 { width: 16px; height: 16px; }
+.ico-24 { width: 24px; height: 24px; }
+.ico-28 { width: 28px; height: 28px; }
+
+/* Contenedor circular de categoría: mismo color al 12% (18% en oscuro), trazo al 100%. */
+.ico-cat {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  border-radius: var(--r-pill);
+  color: var(--color-cat, var(--cat-gris));
+  background: color-mix(in srgb, var(--color-cat, var(--cat-gris))
+              calc(var(--cat-fondo-alfa) * 100%), transparent);
+  flex: 0 0 auto;
+}
+
+/* ═══ PULSACIÓN (§10.2, §12) ════════════════════════════════════════════════════
+   scale(0.97) al presionar en TODO elemento pulsable. */
+.pulsable {
+  transition: transform var(--d-press) var(--ease-out),
+              background-color var(--d-press) var(--ease-out),
+              border-color var(--d-press) var(--ease-out),
+              opacity var(--d-press) var(--ease-out);
+}
+.pulsable:active { transform: scale(0.97); }
+.pulsable:disabled, .pulsable[aria-disabled="true"] {
+  opacity: 0.45; pointer-events: none;
+}
+
+/* §10.3 regla 6: el hover se protege. En táctil se dispara al tocar y deja elementos
+   «pegados» en estado activo. */
+@media (hover: hover) and (pointer: fine) {
+  .btn-primario:hover  { background: var(--ink-hover); }
+  .btn-secundario:hover { background: var(--bg-inset); }
+  .btn-icono:hover     { background: var(--bg-inset); }
+  .tarjeta-hover:hover { box-shadow: var(--sh-md); }
+  .nav-item:hover:not([aria-current="page"]) { color: var(--text-primary); }
+}
+
+/* ═══ BOTONES (§7.2) ════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--tactil-min);
+  padding: 0 var(--sp-5);
+  border-radius: var(--r-pill);
+  font-size: var(--t-card-title); font-weight: 600;
+  white-space: nowrap;
+}
+.btn-primario   { background: var(--ink); color: var(--on-ink); }
+.btn-secundario { background: var(--bg-surface); color: var(--text-primary);
+                  box-shadow: inset 0 0 0 1px var(--border); }
+.btn-fantasma   { background: transparent; color: var(--text-primary); }
+.btn-peligro    { background: var(--negative); color: #FFFFFF; }
+.btn-bloque     { width: 100%; }
+
+.btn-icono {
+  display: grid; place-items: center;
+  width: var(--tactil-min); height: var(--tactil-min);
+  border-radius: var(--r-pill);
+  color: var(--text-primary);
+}
+
+/* ═══ TARJETA (§7.1) ════════════════════════════════════════════════════════════ */
+.tarjeta {
+  background: var(--bg-surface);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  box-shadow: var(--sh-sm);
+}
+[data-tema="oscuro"] .tarjeta {
+  /* En oscuro la jerarquía la crea el borde translúcido, no la sombra (§4.3). */
+  box-shadow: none;
+  border: 1px solid var(--border);
+}
+.tarjeta-plana { box-shadow: none; border: 1px solid var(--border); }
+
+/* ═══ PÍLDORA DE VARIACIÓN (§7.5, §1.3) ═════════════════════════════════════════
+   El elemento memorable. Misma forma que la píldora de la barra de navegación y que
+   el tooltip de los gráficos: radio completo, altura 24, tipografía tabular. */
+.pildora {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 24px; padding: 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  font-size: var(--t-caption); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pildora-pos  { background: var(--positive-soft); color: var(--positive-text); }
+.pildora-neg  { background: var(--negative-soft); color: var(--negative-text); }
+.pildora-warn { background: var(--warning-soft);  color: var(--warning-text); }
+.pildora-neutra { background: var(--bg-inset); color: var(--text-secondary); }
+.pildora .ico { width: 12px; height: 12px; }
+
+/* ═══ CHIP (§7.3) ═══════════════════════════════════════════════════════════════ */
+.chip {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  min-height: 36px; padding: 0 var(--sp-4);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface); color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--border);
+  font-size: var(--t-label); font-weight: 500;
+  white-space: nowrap;
+}
+.chip[aria-pressed="true"] {
+  background: var(--ink); color: var(--on-ink); box-shadow: none;
+}
+
+/* Fila de chips con scroll horizontal (§12). El scroll es del carril, no del body:
+   por eso la barra no cuenta como scroll horizontal de página. */
+.carril-chips {
+  display: flex; gap: var(--sp-2);
+  overflow-x: auto; scrollbar-width: none;
+  padding: var(--sp-1) var(--margen-lateral);
+  margin-inline: calc(var(--margen-lateral) * -1);
+  scroll-snap-type: x proximity;
+}
+.carril-chips::-webkit-scrollbar { display: none; }
+.carril-chips > * { scroll-snap-align: start; }
+
+/* ═══ CASCARÓN (§5.1 · Manual 5 §B.1) ═══════════════════════════════════════════ */
+
+.app {
+  display: flex; flex-direction: column;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.cabecera {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  display: flex; align-items: center; gap: var(--sp-2);
+  height: var(--h-header);
+  padding-inline: var(--margen-lateral);
+  background: color-mix(in srgb, var(--bg-app) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  /* §10.3 regla 3: solo transform y opacity. La altura es la excepción justificada
+     del §5.1 (el header colapsa de 56 a 44), y solo ocurre una vez por dirección. */
+  transition: height var(--d-page) var(--ease-out);
+}
+.cabecera[data-compacta="true"] { height: var(--h-header-min); }
+.cabecera[data-compacta="true"] .cabecera-titulo { font-size: var(--t-card-title); }
+
+.cabecera-titulo {
+  font-family: var(--f-display); font-weight: 600;
+  font-size: var(--t-title); line-height: 1.2;
+  transition: font-size var(--d-page) var(--ease-out);
+}
+
+.contenido {
+  flex: 1 1 auto;
+  width: 100%;
+  padding-bottom: calc(var(--pad-inferior-contenido) + var(--hueco-seguro-inf));
+}
+
+/* ── Barra de navegación flotante (§5.1, §7.16, §12) ─────────────────────────
+   Flota: no ocupa el ancho completo. El FAB queda FUERA de ella, a su derecha —
+   es explícito en la lista de entrega y es lo que hace reconocible el cascarón. */
+.barra-nav {
+  position: fixed; z-index: 30;
+  left: var(--margen-lateral);
+  right: calc(var(--margen-lateral) + var(--d-fab) + var(--sp-2) + var(--sp-4));
+  bottom: calc(var(--sp-4) + var(--hueco-seguro-inf));
+  height: var(--h-barra-nav);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+  box-shadow: var(--sh-md);
+}
+[data-tema="oscuro"] .barra-nav { border: 1px solid var(--border); }
+
+.nav-item {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--sp-2);
+  height: var(--tactil-min); min-width: var(--tactil-min);
+  flex: 1 1 auto;
+  border-radius: var(--r-pill);
+  color: var(--text-secondary);
+  transition: color var(--d-press) var(--ease-out);
+}
+.nav-item[aria-current="page"] { color: var(--on-ink); }
+.nav-item-texto {
+  font-size: var(--t-label); font-weight: 600;
+  max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0;
+  transition: max-width var(--d-panel) var(--ease-out),
+              opacity var(--d-press) var(--ease-out);
+}
+.nav-item[aria-current="page"] .nav-item-texto { max-width: 88px; opacity: 1; }
+
+/* La píldora oscura del destino activo se desplaza e interpola su ancho (§10.2).
+   Es UN elemento que se mueve, no cinco que se encienden y apagan: así el
+   desplazamiento se lee como continuidad y no como parpadeo. */
+.nav-pildora {
+  position: absolute; z-index: 0;
+  top: var(--sp-2); bottom: var(--sp-2);
+  left: 0; width: 0;
+  border-radius: var(--r-pill);
+  background: var(--ink);
+  transition: transform var(--d-panel) var(--ease-out),
+              width var(--d-panel) var(--ease-out);
+}
+.barra-nav[data-listo="false"] .nav-pildora { transition: none; }
+
+/* ── FAB (§5.1, §12) ────────────────────────────────────────────────────────── */
+.fab {
+  position: fixed; z-index: 30;
+  right: var(--margen-lateral);
+  bottom: calc(var(--sp-4) + (var(--h-barra-nav) - var(--d-fab)) / 2 + var(--hueco-seguro-inf));
+  width: var(--d-fab); height: var(--d-fab);
+  display: grid; place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--ink); color: var(--on-ink);
+  box-shadow: var(--sh-fab);
+}
+
+/* ═══ NAVEGACIÓN ENTRE PANTALLAS (§10.2) ════════════════════════════════════════
+   Deslizamiento de 24px + opacidad. Transición, no keyframe (§10.3 regla 4): un
+   keyframe reinicia con un salto visible si se navega rápido. */
+.vista { animation: vista-entra var(--d-page) var(--ease-out) both; }
+@keyframes vista-entra {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.vista[data-atras="true"] { animation-name: vista-entra-atras; }
+@keyframes vista-entra-atras {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ═══ BARRA DE PROGRESO (§7.6) ══════════════════════════════════════════════════
+   El relleno nace en su ancho final y la animación solo lo revela. Al revés —nacer en
+   scaleX(0) y liberarlo con JS— la barra se queda vacía para siempre en una pestaña que
+   no compone fotogramas, porque ahí requestAnimationFrame no se ejecuta. */
+.pista-progreso {
+  height: 8px; border-radius: var(--r-pill);
+  background: var(--bg-inset); overflow: hidden;
+}
+.relleno-progreso {
+  height: 100%; border-radius: var(--r-pill);
+  transform-origin: left;
+  animation: progreso-crece 500ms var(--ease-out) both;
+}
+@keyframes progreso-crece {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ═══ SKELETON (§7.14, §12) ═════════════════════════════════════════════════════
+   Con la forma real del contenido, no un rectángulo genérico. */
+.hueso {
+  background: linear-gradient(90deg,
+    var(--bg-inset) 25%,
+    color-mix(in srgb, var(--bg-inset) 60%, var(--bg-surface)) 37%,
+    var(--bg-inset) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--r-sm);
+  animation: hueso-brilla 1.4s var(--ease-in-out) infinite;
+}
+@keyframes hueso-brilla {
+  from { background-position: 100% 50%; }
+  to   { background-position: 0 50%; }
+}
+.hueso-linea  { height: 14px; }
+.hueso-cifra  { height: 34px; width: 60%; border-radius: var(--r-md); }
+.hueso-circulo { width: 40px; height: 40px; border-radius: var(--r-pill); }
+
+/* ═══ ESTADO VACÍO (§7.15, §12) ═════════════════════════════════════════════════
+   Título afirmativo y CTA. Nunca «no hay datos». */
+.vacio {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: var(--sp-3);
+  padding: var(--sp-10) var(--sp-5);
+}
+.vacio-ico {
+  display: grid; place-items: center;
+  width: 56px; height: 56px;
+  border-radius: var(--r-pill);
+  background: var(--bg-inset); color: var(--text-secondary);
+}
+
+/* ═══ SNACKBAR (§7.12, §10.2) ═══════════════════════════════════════════════════ */
+.snackbar-zona {
+  position: fixed; z-index: 60;
+  left: var(--margen-lateral); right: var(--margen-lateral);
+  bottom: calc(var(--sp-4) + var(--h-barra-nav) + var(--sp-3) + var(--hueco-seguro-inf));
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  pointer-events: none;
+}
+.snackbar {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--text-primary); color: var(--bg-surface);
+  box-shadow: var(--sh-lg);
+  font-size: var(--t-label);
+  pointer-events: auto;
+  animation: snack-entra var(--d-panel) var(--ease-out) both;
+}
+.snackbar[data-saliendo="true"] { animation: snack-sale var(--d-exit) var(--ease-out) both; }
+.snackbar-error { background: var(--negative); color: #FFFFFF; }
+.snackbar-accion {
+  font-weight: 600; text-decoration: underline; flex: 0 0 auto;
+  min-height: 32px; padding-inline: var(--sp-1);
+}
+@keyframes snack-entra {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes snack-sale {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(40%); }
+}
+
+/* ═══ BOTTOM SHEET (§7.8, §10.2) ════════════════════════════════════════════════
+   §10.5: el velo entra en 200ms mientras la hoja tarda 260. La oscuridad llega antes
+   que el panel y la entrada se siente más asentada. */
+.velo {
+  position: fixed; inset: 0; z-index: 40;
+  background: var(--bg-scrim);
+  animation: velo-entra 200ms var(--ease-out) both;
+}
+.velo[data-saliendo="true"] { animation: velo-sale 180ms var(--ease-out) both; }
+@keyframes velo-entra { from { opacity: 0; } to { opacity: 1; } }
+@keyframes velo-sale  { from { opacity: 1; } to { opacity: 0; } }
+
+.hoja {
+  position: fixed; z-index: 50;
+  left: 0; right: 0; bottom: 0;
+  max-height: 88dvh; overflow-y: auto;
+  padding: var(--sp-3) var(--margen-lateral)
+           calc(var(--sp-6) + var(--hueco-seguro-inf));
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--bg-surface);
+  box-shadow: var(--sh-lg);
+  animation: hoja-entra var(--d-sheet) var(--ease-drawer) both;
+}
+.hoja[data-saliendo="true"] { animation: hoja-sale 180ms var(--ease-out) both; }
+@keyframes hoja-entra { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes hoja-sale  { from { transform: none; } to { transform: translateY(100%); } }
+
+.hoja-asa {
+  width: 36px; height: 4px; margin: 0 auto var(--sp-3);
+  border-radius: var(--r-pill); background: var(--border-strong);
+}
+
+/* ═══ AVISO SIN CONEXIÓN ════════════════════════════════════════════════════════ */
+.aviso-red {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--margen-lateral);
+  background: var(--warning-soft); color: var(--warning-text);
+  font-size: var(--t-caption); font-weight: 500;
+}
+
+/* ═══ PUERTA DE ACCESO (Manual 4 §B) ════════════════════════════════════════════ */
+.puerta {
+  min-height: 100dvh;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--margen-lateral)
+           calc(var(--sp-10) + var(--hueco-seguro-inf));
+  /* El CTA cae en el tercio inferior: es la zona del pulgar. */
+}
+.puerta-marca {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  margin-top: auto;
+}
+.puerta-logo {
+  display: grid; place-items: center;
+  width: 56px; height: 56px; margin-bottom: var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--ink); color: var(--on-ink);
+  font-family: var(--f-display); font-weight: 700; font-size: 28px;
+}
+.puerta-acciones { margin-top: auto; display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* El botón que Google Identity Services renderiza. Se centra y se le da el ancho
+   del contenido; su aspecto lo controla Google, no nosotros. */
+.puerta-gis { display: flex; justify-content: center; min-height: 44px; }
+
+.puerta-error {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--negative-soft); color: var(--negative-text);
+  font-size: var(--t-label);
+}
+
+/* ═══ CARGA A PANTALLA COMPLETA ═════════════════════════════════════════════════ */
+.cargando-pantalla {
+  min-height: 100dvh;
+  display: grid; place-items: center;
+  color: var(--text-secondary);
+}
+.girando { animation: gira 900ms linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+
+/* ═══ ESCRITORIO (§5.2, §11) ════════════════════════════════════════════════════
+   El cascarón de escritorio completo llega con las pantallas. Aquí solo lo necesario
+   para que ≥1024px no se vea como un móvil estirado. */
+@media (min-width: 1024px) {
+  :root { --margen-lateral: var(--sp-6); --ancho-contenido: min(100% - 48px, 1440px); }
+  .barra-nav {
+    left: 50%; right: auto; transform: translateX(-50%);
+    width: min(560px, calc(100% - 160px));
+  }
+  .fab { right: max(var(--sp-6), calc(50% - 380px)); }
+}
