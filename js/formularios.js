@@ -181,7 +181,6 @@ const Formularios = (function () {
    */
   function elegirCategoria(grupo, actual, alElegir) {
     const cats = categoriasDe(grupo);
-    const frecuentes = cats.slice(0, 5);
 
     const hoja = UI.abrirHoja({
       titulo: 'Categoría',
@@ -191,42 +190,47 @@ const Formularios = (function () {
           '<input class="campo-control" type="search" placeholder="Buscar categoría" ' +
             'data-buscar autocomplete="off">' +
         '</div>' +
-        '<div class="carril-chips" style="margin-bottom:var(--sp-3)" data-rapidos>' +
-          frecuentes.map(function (c) {
-            // `data-cat-rapida` y no `data-cat`: los botones de SUBcategoría también
-            // llevan `data-cat`, y con el mismo nombre el primer closest() los capturaba
-            // aquí y la subcategoría elegida se perdía en silencio.
-            return '<button type="button" class="chip pulsable" data-cat-rapida="' +
-              UI.esc(c.id_categoria) + '">' + UI.ico(c.icono) + UI.esc(c.nombre) + '</button>';
-          }).join('') +
-        '</div>' +
         '<ul class="lista-cat" data-lista>' + cats.map(filaCategoria).join('') + '</ul>',
       alAbrir: function (raiz) {
+        function plegar(li, abierta) {
+          li.dataset.abierta = String(abierta);
+          const b = li.querySelector('[data-abrir-cat]');
+          if (b) b.setAttribute('aria-expanded', String(abierta));
+        }
+
         raiz.addEventListener('input', function (e) {
           if (!e.target.matches('[data-buscar]')) return;
           const q = e.target.value.trim().toLowerCase();
-          raiz.querySelector('[data-rapidos]').hidden = q.length > 0;
+
           raiz.querySelectorAll('[data-fila-cat]').forEach(function (li) {
             const cid = li.dataset.filaCat;
             const c = buscarCategoria(cid);
             const subs = subcategoriasDe(cid);
-            const coincide = !q || c.nombre.toLowerCase().indexOf(q) >= 0 ||
-              subs.some(function (s) { return s.nombre.toLowerCase().indexOf(q) >= 0; });
-            li.hidden = !coincide;
-            // Al buscar se despliegan solas: si no, un resultado que está dentro de una
-            // categoría cerrada parece que no existe.
-            if (q && coincide) {
-              li.dataset.abierta = 'true';
-              const b = li.querySelector('[data-abrir-cat]');
-              if (b) b.setAttribute('aria-expanded', 'true');
-            }
+            const enCat = c.nombre.toLowerCase().indexOf(q) >= 0;
+            const enSub = subs.some(function (s) {
+              return s.nombre.toLowerCase().indexOf(q) >= 0;
+            });
+            li.hidden = !!q && !enCat && !enSub;
+
+            // Buscando se despliega lo que coincide: un resultado dentro de una categoría
+            // cerrada parece que no existe. Al vaciar el buscador **todo vuelve a plegarse**,
+            // que es el estado en el que la lista se puede recorrer de un vistazo.
+            plegar(li, !!q && !li.hidden);
+
+            // Y dentro de una categoría desplegada por búsqueda, se ocultan las
+            // subcategorías que no coinciden: si el nombre de la categoría casa, se
+            // muestran todas sus hijas.
+            li.querySelectorAll('[data-sub]').forEach(function (b) {
+              const s = buscarSub(b.dataset.sub);
+              b.parentElement.hidden = !!q && !enCat &&
+                s.nombre.toLowerCase().indexOf(q) < 0;
+            });
+            const toda = li.querySelector('.lista-sub-toda');
+            if (toda) toda.parentElement.hidden = !!q && !enCat;
           });
         });
 
         raiz.addEventListener('click', function (e) {
-          const chip = e.target.closest('[data-cat-rapida]');
-          if (chip) { elegir(chip.dataset.catRapida, null); return; }
-
           const sub = e.target.closest('[data-sub]');
           if (sub) { elegir(sub.dataset.cat, sub.dataset.sub); return; }
 
@@ -234,15 +238,13 @@ const Formularios = (function () {
           if (sola) { elegir(sola.dataset.soloCat, null); return; }
 
           // §9.4: «tap despliega sus subcategorías en línea». Toda la fila abre, no solo el
-          // chevrón de la derecha: apuntar a un icono de 20px para ver lo que hay dentro es
-          // exactamente la fricción que el §9.4 quiere evitar. La categoría sola se elige
-          // desde la primera opción de la lista desplegada.
+          // chevrón: apuntar a un icono de 20px para ver lo que hay dentro es exactamente la
+          // fricción que el §9.4 quiere evitar. La categoría sola se elige desde la primera
+          // opción de la lista desplegada.
           const cab = e.target.closest('[data-abrir-cat]');
           if (cab) {
             const li = cab.closest('[data-fila-cat]');
-            const abierta = li.dataset.abierta !== 'true';
-            li.dataset.abierta = String(abierta);
-            cab.setAttribute('aria-expanded', String(abierta));
+            plegar(li, li.dataset.abierta !== 'true');
             return;
           }
         });
@@ -270,8 +272,7 @@ const Formularios = (function () {
           UI.ico(c.icono) + '</span>' +
         '<span class="crece t-card-title recorta">' + UI.esc(c.nombre) + '</span>' +
         (subs.length
-          ? '<span class="t-caption txt-3">' + subs.length + '</span>' +
-            '<span class="chevron-cat">' + UI.ico('chevron-down') + '</span>'
+          ? '<span class="chevron-cat">' + UI.ico('chevron-down') + '</span>'
           : '') +
       '</button>' +
       (subs.length
