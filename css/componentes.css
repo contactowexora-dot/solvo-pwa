@@ -802,8 +802,7 @@
   transition: transform var(--d-press) var(--ease-out);
 }
 [data-abierta="true"] > .fila-cat .chevron-cat { transform: rotate(180deg); }
-/* La categoría sola va primero y se distingue del resto: es una opción de otro nivel. */
-.lista-sub-toda { color: var(--text-primary); font-weight: 500; }
+
 
 .lista-sub { display: none; padding-left: var(--sp-10); }
 [data-abierta="true"] > .lista-sub { display: block; }
