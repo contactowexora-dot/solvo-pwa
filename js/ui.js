@@ -258,10 +258,21 @@ const UI = (function () {
     requestAnimationFrame(paso);
   }
 
+  /**
+   * Cierra la hoja abierta, si la hay. Lo necesita quien cierra la pantalla que la abrió: sin
+   * esto, cerrar el formulario con la X dejaba el selector de categoría flotando solo sobre
+   * la app, sin nada debajo a lo que pertenecer.
+   */
+  function cerrarHoja() {
+    if (hojaAbierta) hojaAbierta.cerrar();
+  }
+
+  function hayHoja() { return !!hojaAbierta; }
+
   return {
     esc: esc, ico: ico, monto: monto, pildoraVariacion: pildoraVariacion,
     avisar: avisar, avisarError: avisarError,
-    abrirHoja: abrirHoja,
+    abrirHoja: abrirHoja, cerrarHoja: cerrarHoja, hayHoja: hayHoja,
     huesosFilas: huesosFilas, huesoHero: huesoHero,
     vacio: vacio, animarCifra: animarCifra
   };

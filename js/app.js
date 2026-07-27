@@ -535,7 +535,17 @@ const App = (function () {
    * enseñaría medio segundo de selectores en blanco, y quien toque uno en ese instante
    * abriría una hoja sin opciones.
    */
+  const FORMULARIOS = { gasto: 1, ingreso: 1, mover: 1, cuenta: 1, tarjeta: 1 };
+
   async function registrar(tipo, prellenado) {
+    // Un tipo desconocido se queda callado si no se comprueba: eso fue exactamente lo que
+    // pasó cuando esta función acabó ocupando el nombre `App.registrar` y recibía nombres de
+    // pantalla en vez de tipos de formulario. Un error visible cuesta un segundo; uno mudo,
+    // media hora.
+    if (!FORMULARIOS[tipo]) {
+      throw new Error('Tipo de formulario desconocido: «' + tipo + '».');
+    }
+
     const cerrarAviso = UI.avisar('Preparando…', { ms: 8000 });
     try {
       await Formularios.cargarCatalogos();
@@ -543,6 +553,8 @@ const App = (function () {
       if (tipo === 'gasto') return formularioGasto(prellenado);
       if (tipo === 'ingreso') return formularioIngreso(prellenado);
       if (tipo === 'mover') return formularioMover(prellenado);
+      if (tipo === 'cuenta') return formularioCuenta();
+      if (tipo === 'tarjeta') return formularioTarjeta();
     } catch (e) {
       cerrarAviso();
       if (e && (e.sesion || e.sinAcceso)) return Auth.cerrarSesion('rechazada');
@@ -717,9 +729,13 @@ const App = (function () {
     iniciar: iniciar,
     ir: ir,
     recargar: resolverHash,
+    // Ojo con los nombres: aquí hubo dos claves `registrar` en el mismo objeto —una para
+    // registrar pantallas y otra para abrir el formulario de registro— y la segunda ganaba
+    // en silencio, dejando el registro de pantallas sin efecto. JavaScript no avisa de una
+    // clave duplicada en un literal: se queda con la última y sigue.
     registrar: function (ruta, pintar) { PANTALLAS[ruta] = pintar; },
     marcarAcciones: marcarAcciones,
-    registrar: registrar,
+    abrirFormulario: registrar,
     plataforma: function () { return plataforma; },
     Tema: Tema
   };

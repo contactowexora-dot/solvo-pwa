@@ -126,6 +126,9 @@ const Formularios = (function () {
       if (sucio && !forzar && !guardando) {
         if (!confirm('Tienes cambios sin guardar. ¿Cerrar de todos modos?')) return;
       }
+      // Cerrar el formulario cierra lo que colgara de él. Sin esto, la X dejaba el selector
+      // de categoría flotando solo sobre la app, sin nada debajo a lo que pertenecer.
+      UI.cerrarHoja();
       abierto = null;
       document.body.style.overflow = scrollPrevio;
       document.removeEventListener('keydown', alTeclado);
@@ -135,7 +138,13 @@ const Formularios = (function () {
     }
 
     function alTeclado(e) {
-      if (e.key === 'Escape') { e.preventDefault(); cerrar(); }
+      if (e.key !== 'Escape') return;
+      // Escape cierra lo de MÁS ARRIBA. Con un selector abierto le toca a él, y de eso ya se
+      // encarga su propio manejador: si el formulario también reaccionara, una sola pulsación
+      // cerraría las dos capas de golpe.
+      if (UI.hayHoja()) return;
+      e.preventDefault();
+      cerrar();
     }
     document.addEventListener('keydown', alTeclado);
 
@@ -206,7 +215,11 @@ const Formularios = (function () {
             li.hidden = !coincide;
             // Al buscar se despliegan solas: si no, un resultado que está dentro de una
             // categoría cerrada parece que no existe.
-            if (q && coincide) li.dataset.abierta = 'true';
+            if (q && coincide) {
+              li.dataset.abierta = 'true';
+              const b = li.querySelector('[data-abrir-cat]');
+              if (b) b.setAttribute('aria-expanded', 'true');
+            }
           });
         });
 
@@ -214,17 +227,24 @@ const Formularios = (function () {
           const chip = e.target.closest('[data-cat-rapida]');
           if (chip) { elegir(chip.dataset.catRapida, null); return; }
 
-          const cab = e.target.closest('[data-abrir-cat]');
-          if (cab) {
-            const li = cab.closest('[data-fila-cat]');
-            li.dataset.abierta = li.dataset.abierta === 'true' ? 'false' : 'true';
-            return;
-          }
           const sub = e.target.closest('[data-sub]');
           if (sub) { elegir(sub.dataset.cat, sub.dataset.sub); return; }
 
           const sola = e.target.closest('[data-solo-cat]');
           if (sola) { elegir(sola.dataset.soloCat, null); return; }
+
+          // §9.4: «tap despliega sus subcategorías en línea». Toda la fila abre, no solo el
+          // chevrón de la derecha: apuntar a un icono de 20px para ver lo que hay dentro es
+          // exactamente la fricción que el §9.4 quiere evitar. La categoría sola se elige
+          // desde la primera opción de la lista desplegada.
+          const cab = e.target.closest('[data-abrir-cat]');
+          if (cab) {
+            const li = cab.closest('[data-fila-cat]');
+            const abierta = li.dataset.abierta !== 'true';
+            li.dataset.abierta = String(abierta);
+            cab.setAttribute('aria-expanded', String(abierta));
+            return;
+          }
         });
       }
     });
@@ -237,27 +257,36 @@ const Formularios = (function () {
 
   function filaCategoria(c) {
     const subs = subcategoriasDe(c.id_categoria);
+
+    // Sin subcategorías no hay nada que desplegar: tocar la fila la elige y ya está.
+    const accion = subs.length
+      ? 'data-abrir-cat'
+      : 'data-solo-cat="' + UI.esc(c.id_categoria) + '"';
+
     return '<li data-fila-cat="' + UI.esc(c.id_categoria) + '" data-abierta="false">' +
-      '<div class="fila fila-cat">' +
-        '<button type="button" class="fila crece pulsable" data-solo-cat="' +
-          UI.esc(c.id_categoria) + '" style="text-align:left;min-height:52px">' +
-          '<span class="ico-cat ico-cat-sm" style="--color-cat:' + UI.esc(c.color) + '">' +
-            UI.ico(c.icono) + '</span>' +
-          '<span class="crece t-card-title recorta">' + UI.esc(c.nombre) + '</span>' +
-        '</button>' +
+      '<button type="button" class="fila fila-cat pulsable" ' + accion + ' ' +
+        (subs.length ? 'aria-expanded="false" ' : '') + '>' +
+        '<span class="ico-cat ico-cat-sm" style="--color-cat:' + UI.esc(c.color) + '">' +
+          UI.ico(c.icono) + '</span>' +
+        '<span class="crece t-card-title recorta">' + UI.esc(c.nombre) + '</span>' +
         (subs.length
-          ? '<button type="button" class="btn-icono pulsable chevron-cat" ' +
-            'data-abrir-cat aria-label="Ver subcategorías de ' + UI.esc(c.nombre) + '">' +
-            UI.ico('chevron-down') + '</button>'
+          ? '<span class="t-caption txt-3">' + subs.length + '</span>' +
+            '<span class="chevron-cat">' + UI.ico('chevron-down') + '</span>'
           : '') +
-      '</div>' +
+      '</button>' +
       (subs.length
-        ? '<ul class="lista-sub">' + subs.map(function (s) {
-            return '<li><button type="button" class="fila pulsable lista-sub-item" ' +
-              'data-cat="' + UI.esc(c.id_categoria) + '" data-sub="' +
-              UI.esc(s.id_subcategoria) + '">' +
-              '<span class="t-body crece recorta">' + UI.esc(s.nombre) + '</span></button></li>';
-          }).join('') + '</ul>'
+        ? '<ul class="lista-sub">' +
+            // Primera opción: la categoría sin bajar a subcategoría. El §9.4 la permite, y
+            // ponerla aquí la hace visible en vez de esconderla en un gesto distinto.
+            '<li><button type="button" class="fila pulsable lista-sub-item lista-sub-toda" ' +
+              'data-solo-cat="' + UI.esc(c.id_categoria) + '">' +
+              '<span class="t-body crece recorta">Toda la categoría</span></button></li>' +
+            subs.map(function (s) {
+              return '<li><button type="button" class="fila pulsable lista-sub-item" ' +
+                'data-cat="' + UI.esc(c.id_categoria) + '" data-sub="' +
+                UI.esc(s.id_subcategoria) + '">' +
+                '<span class="t-body crece recorta">' + UI.esc(s.nombre) + '</span></button></li>';
+            }).join('') + '</ul>'
         : '') +
     '</li>';
   }
