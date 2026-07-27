@@ -17,7 +17,7 @@
  *    Por eso la puerta de acceso es la única pantalla que exige estar en línea.
  */
 
-const VERSION = 'solvo-cascaron-v9.0.1';
+const VERSION = 'solvo-cascaron-v10.0.0';
 
 /* Todo con ./ para que funcione bajo el subdirectorio de GitHub Pages
    (usuario.github.io/repo/), donde la raíz absoluta «/» no es la de la app. */
@@ -33,7 +33,9 @@ const DEL_CASCARON = [
   './js/api.js',
   './js/auth.js',
   './js/app.js',
+  './js/graficos.js',
   './js/inicio.js',
+  './vendor/echarts.min.js',
   './assets/icons-sprite.svg',
   './assets/icono.svg'
 ];
