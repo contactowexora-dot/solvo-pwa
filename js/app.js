@@ -477,8 +477,8 @@ const App = (function () {
   /** Las pantallas que aún no existen dicen en qué paso llegan, no «404». */
   function marcadorDePaso(ruta) {
     const cuando = {
-      movimientos: 'Paso 10', dashboard: 'Paso 11',
-      presupuesto: 'Paso 12', productos: 'Paso 12'
+      movimientos: 'Paso 12', dashboard: 'Paso 13',
+      presupuesto: 'Paso 14', productos: 'Paso 14'
     }[ruta] || 'un paso próximo';
     return UI.vacio({
       icono: 'sparkles',
@@ -491,23 +491,63 @@ const App = (function () {
   // HOJAS DEL CASCARÓN
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /**
+   * El FAB abre las tres puertas del §7: gasto, ingreso y mover dinero. Son tres cosas
+   * distintas y contablemente incompatibles, así que se eligen antes de escribir nada — no
+   * hay un formulario único con un desplegable de tipo arriba.
+   */
   function abrirRegistrar() {
-    UI.abrirHoja({
+    const opciones = [
+      { tipo: 'gasto', texto: 'Gasto', icono: 'arrow-up-right', color: 'var(--cat-rojo)',
+        desc: 'Dinero que sale' },
+      { tipo: 'ingreso', texto: 'Ingreso', icono: 'arrow-down-left', color: 'var(--cat-verde)',
+        desc: 'Dinero que entra' },
+      { tipo: 'mover', texto: 'Mover dinero', icono: 'arrow-left-right',
+        color: 'var(--cat-indigo)', desc: 'Cambia de sitio, ni entra ni sale' }
+    ];
+
+    const hoja = UI.abrirHoja({
       titulo: 'Registrar',
-      html: '<div class="pila pila-2">' +
-        [['Gasto', 'arrow-up-right'], ['Ingreso', 'arrow-down-left'],
-         ['Mover dinero', 'arrow-left-right']].map(function (o) {
-          return '<button class="fila pulsable" style="width:100%;min-height:56px;' +
-                   'padding:0 var(--sp-2);border-radius:var(--r-md);text-align:left">' +
-                   UI.ico(o[1], 'ico-24') +
-                   '<span class="crece t-card-title">' + o[0] + '</span>' +
-                   UI.ico('chevron-right') +
-                 '</button>';
-        }).join('') +
-        '</div>' +
-        '<p class="t-caption txt-2" style="margin-top:var(--sp-4);text-align:center">' +
-          'Los formularios llegan en el Paso 10.</p>'
+      html: '<ul class="pila pila-2">' + opciones.map(function (o) {
+        return '<li><button type="button" class="fila pulsable fila-opcion" ' +
+          'data-registrar="' + o.tipo + '">' +
+          '<span class="ico-cat" style="--color-cat:' + o.color + '">' +
+            UI.ico(o.icono) + '</span>' +
+          '<span class="crece pila" style="text-align:left">' +
+            '<span class="t-card-title">' + o.texto + '</span>' +
+            '<span class="t-caption txt-2">' + o.desc + '</span>' +
+          '</span>' + UI.ico('chevron-right') +
+        '</button></li>';
+      }).join('') + '</ul>',
+      alAbrir: function (raiz) {
+        raiz.addEventListener('click', async function (e) {
+          const b = e.target.closest('[data-registrar]');
+          if (!b) return;
+          hoja.cerrar();
+          await registrar(b.dataset.registrar);
+        });
+      }
     });
+  }
+
+  /**
+   * Los catálogos se piden ANTES de pintar el formulario. Abrirlo vacío y rellenarlo después
+   * enseñaría medio segundo de selectores en blanco, y quien toque uno en ese instante
+   * abriría una hoja sin opciones.
+   */
+  async function registrar(tipo, prellenado) {
+    const cerrarAviso = UI.avisar('Preparando…', { ms: 8000 });
+    try {
+      await Formularios.cargarCatalogos();
+      cerrarAviso();
+      if (tipo === 'gasto') return formularioGasto(prellenado);
+      if (tipo === 'ingreso') return formularioIngreso(prellenado);
+      if (tipo === 'mover') return formularioMover(prellenado);
+    } catch (e) {
+      cerrarAviso();
+      if (e && (e.sesion || e.sinAcceso)) return Auth.cerrarSesion('rechazada');
+      UI.avisarError(e);
+    }
   }
 
   function abrirAcciones() {
@@ -679,6 +719,7 @@ const App = (function () {
     recargar: resolverHash,
     registrar: function (ruta, pintar) { PANTALLAS[ruta] = pintar; },
     marcarAcciones: marcarAcciones,
+    registrar: registrar,
     plataforma: function () { return plataforma; },
     Tema: Tema
   };

@@ -164,7 +164,7 @@ function formatoCifra(cifra, unidad) {
   return String(cifra);
 }
 
-/** Tarjetas del importador. Tap → modal de registro pre-llenado (llega en el Paso 12). */
+/** Tarjetas del importador. Tap → modal de registro pre-llenado (llega en el Paso 11). */
 function seccionPendientes(p, m) {
   if (!p || !p.items || !p.items.length) return '';
   return '<section class="seccion">' +
@@ -260,13 +260,13 @@ function conectar(vista, d, m) {
     if (dest) return irA(dest.dataset.al);
 
     const mov = e.target.closest('[data-movimiento]');
-    if (mov) return UI.avisar('El detalle de movimiento llega en el Paso 11.');
+    if (mov) return UI.avisar('El detalle de movimiento llega en el Paso 12.');
 
     const pnd = e.target.closest('[data-pendiente]');
-    if (pnd) return UI.avisar('El registro desde un correo llega en el Paso 12.');
+    if (pnd) return UI.avisar('El registro desde un correo llega en el Paso 11.');
 
     const ins = e.target.closest('[data-insight]');
-    if (ins) return UI.avisar('La pantalla de Insights llega en el Paso 11.');
+    if (ins) return UI.avisar('La pantalla de Insights llega en el Paso 14.');
   });
 
   gestoPeriodo(vista.querySelector('[data-hero]'));
