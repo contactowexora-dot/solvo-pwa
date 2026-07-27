@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es-PE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Solvo</title>
+<style>
+  :root {
+    --bg-app: #F4F4F5; --bg-surface: #FFF; --bg-inset: #F0F0F1;
+    --border: #E7E7E9; --text-primary: #0E0E10; --text-secondary: #6E6E76;
+    --ink: #0E0E10; --accent: #4B5BE5; --positive-text: #15803D;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-app: #0B0B0D; --bg-surface: #16161A; --bg-inset: #232329;
+      --border: rgba(255,255,255,.08); --text-primary: #F4F4F5; --text-secondary: #A1A1AA;
+      --ink: #F4F4F5; --accent: #8B96F5; --positive-text: #4ADE80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: clamp(20px, 6vw, 48px) clamp(16px, 4.07vw, 24px);
+    background: var(--bg-app); color: var(--text-primary);
+    font: 400 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 520px; }
+  h1 { font-size: 34px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+  .sub { color: var(--text-secondary); margin: 0 0 32px; }
+  .card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 20px; margin-bottom: 12px;
+  }
+  h2 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+       color: var(--text-secondary); margin: 0 0 12px; }
+  code {
+    display: block; background: var(--bg-inset); border-radius: 12px;
+    padding: 12px 14px; font: 500 14px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    word-break: break-all; margin: 0 0 8px;
+  }
+  button {
+    appearance: none; border: 0; background: var(--ink); color: var(--bg-surface);
+    border-radius: 999px; padding: 10px 18px; font: 500 13px/1 inherit;
+    cursor: pointer; transition: transform .14s ease;
+  }
+  button:active { transform: scale(.97); }
+  .hint { color: var(--text-secondary); font-size: 12px; margin: 8px 0 0; }
+  .ok { color: var(--positive-text); font-weight: 500; }
+  ul { margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 13px; }
+  li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Solvo</h1>
+  <p class="sub">Tus finanzas personales, resueltas.</p>
+
+  <div class="card">
+    <h2>Origen autorizado de JavaScript</h2>
+    <code id="origen">—</code>
+    <button id="copiar">Copiar</button>
+    <p class="hint">
+      Pega este valor exacto en Google Cloud Console → Credenciales → tu ID de cliente
+      OAuth → <em>Orígenes autorizados de JavaScript</em>. Sin barra final y sin ruta:
+      ese campo solo acepta esquema + host + puerto.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Estado</h2>
+    <ul>
+      <li>GitHub Pages sirviendo por HTTPS: <span class="ok" id="https">comprobando…</span></li>
+      <li>Ruta completa de esta página: <span id="ruta">—</span></li>
+      <li>La PWA real se publica en el Paso 6 (Manuales 1 y 3).</li>
+    </ul>
+  </div>
+</main>
+
+<script>
+  var proto = window.location.protocol;
+  var servida = proto === 'https:' || proto === 'http:';
+  var origen = window.location.origin;
+  var campoOrigen = document.getElementById('origen');
+  var btnCopiar = document.getElementById('copiar');
+
+  document.getElementById('ruta').textContent = window.location.href;
+  document.getElementById('https').textContent =
+    proto === 'https:' ? 'sí'
+    : proto === 'http:' ? 'no, es http — solo válido en localhost'
+    : 'no, es file:// — el Service Worker exige HTTPS';
+
+  if (servida) {
+    campoOrigen.textContent = origen;
+  } else {
+    // Abierta con doble clic desde el disco: origin devuelve "null" o "file://".
+    // Mostrar eso invitaría a pegar un valor que Google rechaza.
+    campoOrigen.textContent = 'Abre esta página desde su URL de GitHub Pages';
+    campoOrigen.style.color = 'var(--text-secondary)';
+    btnCopiar.disabled = true;
+    btnCopiar.style.opacity = '.45';
+    btnCopiar.style.cursor = 'not-allowed';
+    btnCopiar.textContent = 'Nada que copiar';
+  }
+
+  btnCopiar.addEventListener('click', function () {
+    if (!servida) return;
+    var btn = this;
+    navigator.clipboard.writeText(origen).then(function () {
+      btn.textContent = 'Copiado';
+      setTimeout(function () { btn.textContent = 'Copiar'; }, 1600);
+    }, function () {
+      btn.textContent = 'Cópialo a mano';
+    });
+  });
+</script>
+</body>
+</html>
