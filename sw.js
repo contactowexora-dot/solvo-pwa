@@ -17,7 +17,7 @@
  *    Por eso la puerta de acceso es la única pantalla que exige estar en línea.
  */
 
-const VERSION = 'solvo-cascaron-v11.1.0';
+const VERSION = 'solvo-cascaron-v11.2.0';
 
 /* Todo con ./ para que funcione bajo el subdirectorio de GitHub Pages
    (usuario.github.io/repo/), donde la raíz absoluta «/» no es la de la app. */
@@ -115,12 +115,37 @@ self.addEventListener('fetch', function (evento) {
     return;
   }
 
-  // Los estáticos: caché primero. Son los que hacen que abrir la app sea instantáneo.
+  /**
+   * El código propio —JS y CSS— va a RED PRIMERO, con la caché como respaldo.
+   *
+   * Antes era caché primero con revalidación en segundo plano, y es el enfoque habitual para
+   * estáticos: sirve al instante y actualiza para la próxima. El problema es «para la
+   * próxima»: publicas un arreglo, recargas, y sigues viendo el código viejo. Pasa una vez y
+   * es una curiosidad; pasa tres y te has ido a buscar un bug que ya estaba corregido.
+   *
+   * El coste real es una petición condicional por archivo, que con `ETag` vuelve como 304 y
+   * no transfiere nada. La app sigue abriendo sin conexión porque la caché responde en cuanto
+   * la red falla. Para un producto que cambia cada semana, ese cambio vale la pena.
+   */
+  const esCodigoPropio = /\.(js|css)$/i.test(url.pathname);
+
   evento.respondWith((async function () {
     const cache = await caches.open(VERSION);
+
+    if (esCodigoPropio) {
+      try {
+        const resp = await fetch(pet);
+        if (resp && resp.ok) cache.put(pet, resp.clone());
+        return resp;
+      } catch (e) {
+        return (await cache.match(pet)) || new Response('', { status: 504 });
+      }
+    }
+
+    // Lo demás —sprite, iconos, la librería de gráficos— sí va a caché primero: son
+    // archivos grandes que no cambian entre despliegues.
     const guardado = await cache.match(pet);
     if (guardado) {
-      // Revalidación en segundo plano: se sirve lo rápido y se actualiza para la próxima.
       fetch(pet).then(function (r) {
         if (r && r.ok) cache.put(pet, r.clone());
       }).catch(function () { /* sin red: la copia guardada sigue valiendo */ });
