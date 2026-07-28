@@ -167,12 +167,17 @@
 }
 
 /* ── Barra de navegación flotante (§5.1, §7.16, §12) ─────────────────────────
-   Flota: no ocupa el ancho completo. El FAB queda FUERA de ella, a su derecha —
-   es explícito en la lista de entrega y es lo que hace reconocible el cascarón. */
+   El FAB sigue FUERA de la barra —eso es lo que pide la lista de entrega y lo que hace
+   reconocible el cascarón— pero va ENCIMA, no a su derecha.
+
+   Con el FAB al lado, la barra perdía 72px de ancho y con cinco destinos más la etiqueta del
+   activo desplegada ya no cabía: en un móvil de 360px el label del destino activo se cortaba
+   («Movimient…»). El FAB arriba devuelve el ancho completo a los cinco destinos y no le quita
+   nada al gesto del pulgar, que llega igual de bien. */
 .barra-nav {
   position: fixed; z-index: 30;
   left: var(--margen-lateral);
-  right: calc(var(--margen-lateral) + var(--d-fab) + var(--sp-2) + var(--sp-4));
+  right: var(--margen-lateral);
   bottom: calc(var(--sp-4) + var(--hueco-seguro-inf));
   height: var(--h-barra-nav);
   display: flex; align-items: center; justify-content: space-between;
@@ -202,6 +207,22 @@
 }
 .nav-item[aria-current="page"] .nav-item-texto { max-width: 88px; opacity: 1; }
 
+/**
+ * Por debajo de 375px el label del destino activo NO se muestra.
+ *
+ * La cuenta no da: la barra tiene 278px útiles a 320, los cuatro destinos inactivos ocupan
+ * 44 cada uno —mínimo táctil, no negociable— y al activo le quedan 102 para icono, hueco y
+ * texto. «Movimientos» necesita unos 90 solo de texto. Antes se recortaba a «Movimient…», y
+ * una palabra cortada informa peor que ninguna: la píldora oscura ya dice cuál está activo.
+ *
+ * Es una desviación consciente del §12, que pide el activo «en píldora oscura con label».
+ * Se cumple en los tres anchos de verificación restantes —360, 393 y 430— y se rompe solo en
+ * el mínimo absoluto, donde la alternativa era truncar.
+ */
+@media (max-width: 374px) {
+  .nav-item[aria-current="page"] .nav-item-texto { max-width: 0; opacity: 0; }
+}
+
 /* La píldora oscura del destino activo se desplaza e interpola su ancho (§10.2).
    Es UN elemento que se mueve, no cinco que se encienden y apagan: así el
    desplazamiento se lee como continuidad y no como parpadeo. */
@@ -217,10 +238,11 @@
 .barra-nav[data-listo="false"] .nav-pildora { transition: none; }
 
 /* ── FAB (§5.1, §12) ────────────────────────────────────────────────────────── */
+/* Encima de la barra y alineado a su borde derecho, con --sp-3 de aire entre los dos. */
 .fab {
   position: fixed; z-index: 30;
   right: var(--margen-lateral);
-  bottom: calc(var(--sp-4) + (var(--h-barra-nav) - var(--d-fab)) / 2 + var(--hueco-seguro-inf));
+  bottom: calc(var(--sp-4) + var(--h-barra-nav) + var(--sp-3) + var(--hueco-seguro-inf));
   width: var(--d-fab); height: var(--d-fab);
   display: grid; place-items: center;
   border-radius: var(--r-pill);
@@ -297,7 +319,9 @@
 .snackbar-zona {
   position: fixed; z-index: 1100;
   left: var(--margen-lateral); right: var(--margen-lateral);
-  bottom: calc(var(--sp-4) + var(--h-barra-nav) + var(--sp-3) + var(--hueco-seguro-inf));
+  /* Por encima del FAB, que ahora vive sobre la barra. */
+  bottom: calc(var(--sp-4) + var(--h-barra-nav) + var(--sp-3) + var(--d-fab) +
+               var(--sp-3) + var(--hueco-seguro-inf));
   display: flex; flex-direction: column; gap: var(--sp-2);
   pointer-events: none;
 }
@@ -419,9 +443,10 @@
   :root { --margen-lateral: var(--sp-6); --ancho-contenido: min(100% - 48px, 1440px); }
   .barra-nav {
     left: 50%; right: auto; transform: translateX(-50%);
-    width: min(560px, calc(100% - 160px));
+    width: min(560px, calc(100% - 96px));
   }
-  .fab { right: max(var(--sp-6), calc(50% - 380px)); }
+  /* El FAB se alinea con el borde derecho de la barra centrada, no con el de la ventana. */
+  .fab { right: max(var(--sp-6), calc(50% - min(280px, 50% - 48px))); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -837,3 +862,90 @@
 /* ── Pantalla Productos ───────────────────────────────────────────────────── */
 .fila-producto { min-height: 56px; }
 .fila-producto + .fila-producto { border-top: 1px solid var(--border); }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PANTALLA MOVIMIENTOS (Manual 1 §8.2 · Manual 3 §9.6, §10.4)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Zona contextual del chip ─────────────────────────────────────────────── */
+.zona-grafico {
+  display: flex; align-items: stretch; gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+/* Los 96px del §9.6 G2: el bloque de variación a la izquierda del área del gráfico. */
+.zona-var {
+  flex: 0 0 96px;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: var(--sp-1);
+  border-right: 1px solid var(--border);
+  padding-right: var(--sp-3);
+}
+.grafico-zona {
+  height: 140px;
+  margin: 0; padding-left: 0;
+  min-width: 0;   /* sin esto el canvas no baja del ancho que pidió y desborda la tarjeta */
+}
+
+/* ── Subencabezado de día en el bloque ANTERIORES ─────────────────────────── */
+.subdia {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-3) 0 var(--sp-1);
+}
+.subdia:not(:first-child) {
+  margin-top: var(--sp-2); border-top: 1px solid var(--border);
+}
+
+/* ── Fila deslizable (§10.4) ───────────────────────────────────────────────── */
+.mov {
+  position: relative;
+  /* Recorta lo que asoma por los lados mientras el carril se mueve. */
+  overflow: hidden;
+  border-radius: var(--r-md);
+}
+.mov + .mov { border-top: 1px solid var(--border); }
+
+/* Los botones viven DEBAJO del carril, uno a cada lado. El gesto los descubre. */
+.mov-acciones {
+  position: absolute; inset: 0;
+  display: flex; justify-content: space-between;
+}
+.mov-accion {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px;
+  width: 96px; min-height: 100%;
+  font-size: var(--t-caption); font-weight: 600;
+  color: #FFFFFF;
+}
+.mov-editar { background: var(--accent); }
+.mov-borrar { background: var(--negative); }
+
+/* Con la fila cerrada los botones no deben poder pulsarse ni recibir el foco al tabular. */
+.mov:not([data-abierta]) .mov-acciones { visibility: hidden; }
+/* Y solo se ve el del lado hacia el que se ha deslizado. */
+.mov[data-abierta="izq"] .mov-editar { visibility: hidden; }
+.mov[data-abierta="der"] .mov-borrar { visibility: hidden; }
+
+.mov-carril {
+  position: relative;
+  display: flex; align-items: center; gap: var(--sp-3);
+  width: 100%; min-height: 56px;
+  padding: var(--sp-2) 0;
+  background: var(--bg-surface);
+  text-align: left;
+  /* Muelle de vuelta del §10.4. Solo transform: animar `left` dispararía layout por cuadro. */
+  transition: transform 400ms cubic-bezier(0.22, 1.2, 0.36, 1);
+  touch-action: pan-y;   /* el navegador se queda el scroll vertical; el horizontal es nuestro */
+}
+/* `NO_CORRESPONDE` se atenúa en la lista (§9.2): está registrado pero no es tu gasto. */
+.mov-atenuado { opacity: 0.55; }
+
+.detalle-fila {
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  align-items: flex-start;
+}
+.detalle-fila + .detalle-fila { border-top: 1px solid var(--border); }
+
+@media (min-width: 1024px) {
+  .grafico-zona { height: 180px; }
+}
