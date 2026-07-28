@@ -21,8 +21,8 @@
 window.SOLVO_CONFIG = {
   /* Reemplaza los dos valores. Mientras digan PEGA_, la app muestra su pantalla de
      configuración en vez de una página en blanco. */
-  GOOGLE_CLIENT_ID: '507338667116-74rckgbm2fh6ddc8nq0q6ffg30l2pu22.apps.googleusercontent.com',
-  API_URL: 'https://script.google.com/macros/s/AKfycbwEDZoWKrEjAI1tD5lhObB-tftapBlAmYqJJOinYkKEK-cd_Dvwwy_w30q5A4e-wgFwtw/exec',
+  GOOGLE_CLIENT_ID: 'PEGA_AQUI_TU_CLIENT_ID.apps.googleusercontent.com',
+  API_URL: 'PEGA_AQUI_LA_URL_DEL_DESPLIEGUE_WEB',
 
   /* Moneda de presentación por defecto hasta que el servidor responda con la real. */
   MONEDA_BASE: 'PEN',
@@ -33,7 +33,7 @@ window.SOLVO_CONFIG = {
   MINUTOS_MARGEN_TOKEN: 5,
 
   /* Versión del cascarón. La usa el Service Worker para invalidar su caché. */
-  VERSION: '14.2.0'
+  VERSION: '14.2.1'
 };
 
 /** ¿Están puestos los dos valores? Admite un reemplazo temporal por localStorage. */

@@ -663,7 +663,10 @@ const App = (function () {
     });
 
     hoja.el.addEventListener('click', function (e) {
-      const t = e.target.closest('[data-tema]');
+      // `closest('[data-tema]')` a secas sube hasta <html>, que también lleva ese
+      // atributo (es la marca global de tema, Tema.aplicar). Sin acotar al chip real,
+      // ESE match siempre gana primero y ningún otro botón de la hoja llega a ejecutarse.
+      const t = e.target.closest('.chip[data-tema]');
       if (t) {
         Tema.aplicar(t.dataset.tema);
         pintarCabecera();
