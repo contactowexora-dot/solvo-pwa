@@ -20,6 +20,13 @@ const App = (function () {
   /** Cada pantalla se registra aquí. En el Paso 9 solo Inicio tiene contenido real. */
   const PANTALLAS = {};
 
+  /**
+   * Título de las pantallas que NO son una de las cinco pestañas (§4.1: Objetivos,
+   * Patrimonio, Suscripciones, Reportes… viven detrás del menú de perfil, no de la barra).
+   * Las pestañas toman su título de `DESTINOS`; esto es solo para las secundarias.
+   */
+  const TITULOS = {};
+
   let rutaActual = null;
   let plataforma = { instalada: false, escritorio: false };
 
@@ -254,10 +261,17 @@ const App = (function () {
     const destino = DESTINOS.filter(function (d) { return d.id === rutaActual; })[0];
     const oscuro = document.documentElement.dataset.tema === 'oscuro';
     const p = Auth.perfil();
+    const titulo = destino ? destino.titulo : (TITULOS[rutaActual] || 'Solvo');
 
     cab.innerHTML =
-      '<h1 class="cabecera-titulo crece recorta">' +
-        UI.esc(destino ? destino.titulo : 'Solvo') + '</h1>' +
+      // Las pantallas secundarias (fuera de las cinco pestañas) no tienen un destino en la
+      // barra al que volver con un toque, así que llevan flecha de retroceso. Las pestañas
+      // no la necesitan: para eso está la barra de navegación.
+      (!destino
+        ? '<button class="btn-icono pulsable" data-al="atras" aria-label="Volver">' +
+            UI.ico('arrow-left') + '</button>'
+        : '') +
+      '<h1 class="cabecera-titulo crece recorta">' + UI.esc(titulo) + '</h1>' +
       '<button class="btn-icono pulsable" data-al="tema" ' +
         'aria-label="' + (oscuro ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro') + '">' +
         UI.ico(oscuro ? 'sun' : 'moon') + '</button>' +
@@ -280,6 +294,7 @@ const App = (function () {
       if (b.dataset.al === 'tema') Tema.alternar();
       if (b.dataset.al === 'acciones') abrirAcciones();
       if (b.dataset.al === 'cuenta') abrirCuenta();
+      if (b.dataset.al === 'atras') history.back();
     };
   }
 
@@ -382,18 +397,32 @@ const App = (function () {
 
   async function resolverHash() {
     const cruda = (location.hash || '').replace(/^#\/?/, '');
-    const ruta = DESTINOS.some(function (d) { return d.id === cruda; }) ? cruda : 'inicio';
+    // Válida si es una de las cinco pestañas O una pantalla secundaria ya registrada
+    // (Objetivos y las que lleguen detrás del menú de perfil, §4.1). Solo una ruta
+    // verdaderamente desconocida cae a Inicio.
+    const conocida = DESTINOS.some(function (d) { return d.id === cruda; }) || !!PANTALLAS[cruda];
+    const ruta = conocida ? cruda : 'inicio';
     if (ruta !== cruda) { location.replace('#/' + ruta); return; }
 
-    const atras = DESTINOS.findIndex(function (d) { return d.id === ruta; }) <
-                  DESTINOS.findIndex(function (d) { return d.id === rutaActual; });
+    // El índice solo existe para las cinco pestañas: una pantalla secundaria da -1 en las
+    // dos comparaciones, y `atras` se queda en `false` — entra como una pantalla nueva, ni
+    // «hacia atrás» ni «hacia adelante» dentro de la barra, que es lo correcto para algo que
+    // no vive en ella.
+    const idxNueva = DESTINOS.findIndex(function (d) { return d.id === ruta; });
+    const idxVieja = DESTINOS.findIndex(function (d) { return d.id === rutaActual; });
+    const atras = idxNueva >= 0 && idxVieja >= 0 && idxNueva < idxVieja;
     rutaActual = ruta;
 
-    document.querySelectorAll('.nav-item').forEach(function (b) {
-      if (b.dataset.ruta === ruta) b.setAttribute('aria-current', 'page');
-      else b.removeAttribute('aria-current');
-    });
-    moverPildora();
+    // La píldora y el `aria-current` de la barra solo se tocan cuando la ruta nueva es una
+    // pestaña: entrar a una pantalla secundaria no debe apagar la pestaña desde la que se
+    // llegó, porque a esa es donde «Volver» va a devolver a la persona.
+    if (DESTINOS.some(function (d) { return d.id === ruta; })) {
+      document.querySelectorAll('.nav-item').forEach(function (b) {
+        if (b.dataset.ruta === ruta) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+      });
+      moverPildora();
+    }
     pintarCabecera();
 
     // ECharts retiene el canvas y sus escuchas. En una app de una sola página que repinta al
@@ -534,7 +563,8 @@ const App = (function () {
    * enseñaría medio segundo de selectores en blanco, y quien toque uno en ese instante
    * abriría una hoja sin opciones.
    */
-  const FORMULARIOS = { gasto: 1, ingreso: 1, mover: 1, cuenta: 1, tarjeta: 1 };
+  const FORMULARIOS = { gasto: 1, ingreso: 1, mover: 1, cuenta: 1, tarjeta: 1,
+    prestamo: 1, inversion: 1, objetivo: 1 };
 
   async function registrar(tipo, prellenado) {
     // Un tipo desconocido se queda callado si no se comprueba: eso fue exactamente lo que
@@ -552,8 +582,15 @@ const App = (function () {
       if (tipo === 'gasto') return formularioGasto(prellenado);
       if (tipo === 'ingreso') return formularioIngreso(prellenado);
       if (tipo === 'mover') return formularioMover(prellenado);
-      if (tipo === 'cuenta') return formularioCuenta();
-      if (tipo === 'tarjeta') return formularioTarjeta();
+      // `prellenado` hace doble uso aquí: para gasto/ingreso/mover es el pendiente de
+      // importación (§9.3); para los productos y objetivos es la fila de `detalle` cuando
+      // se está EDITANDO. Mismo hueco del argumento, mismo propósito de fondo — precargar
+      // un formulario que si no empezaría vacío.
+      if (tipo === 'cuenta') return formularioCuenta(prellenado);
+      if (tipo === 'tarjeta') return formularioTarjeta(prellenado);
+      if (tipo === 'prestamo') return formularioPrestamo(prellenado);
+      if (tipo === 'inversion') return formularioInversion(prellenado);
+      if (tipo === 'objetivo') return formularioObjetivo(prellenado);
     } catch (e) {
       cerrarAviso();
       if (e && (e.sesion || e.sinAcceso)) return Auth.cerrarSesion('rechazada');
@@ -593,6 +630,16 @@ const App = (function () {
           '</div>' +
         '</div>' +
 
+        // Suscripciones, Patrimonio, Reportes, Administrar y Configuración llegan con el
+        // Paso 16 (Manual 1 §4.1: viven aquí, detrás del menú de perfil). Objetivos ya está.
+        '<button type="button" class="fila pulsable fila-opcion" data-al="objetivos" ' +
+          'style="margin-bottom:var(--sp-5)">' +
+          '<span class="ico-cat ico-cat-sm" style="--color-cat:var(--cat-indigo)">' +
+            UI.ico('target') + '</span>' +
+          '<span class="crece t-card-title" style="text-align:left">Objetivos</span>' +
+          UI.ico('chevron-right') +
+        '</button>' +
+
         '<p class="t-overline txt-2" style="margin-bottom:var(--sp-2)">Tema</p>' +
         '<div class="fila" style="margin-bottom:var(--sp-5)">' +
           [['auto', 'Automático'], ['claro', 'Claro'], ['oscuro', 'Oscuro']].map(function (o) {
@@ -628,6 +675,11 @@ const App = (function () {
       if (e.target.closest('[data-al="salir"]')) {
         hoja.cerrar();
         Auth.cerrarSesion('manual');
+        return;
+      }
+      if (e.target.closest('[data-al="objetivos"]')) {
+        hoja.cerrar();
+        ir('objetivos');
       }
     });
   }
@@ -732,7 +784,10 @@ const App = (function () {
     // registrar pantallas y otra para abrir el formulario de registro— y la segunda ganaba
     // en silencio, dejando el registro de pantallas sin efecto. JavaScript no avisa de una
     // clave duplicada en un literal: se queda con la última y sigue.
-    registrar: function (ruta, pintar) { PANTALLAS[ruta] = pintar; },
+    registrar: function (ruta, pintar, titulo) {
+      PANTALLAS[ruta] = pintar;
+      if (titulo) TITULOS[ruta] = titulo;
+    },
     marcarAcciones: marcarAcciones,
     abrirFormulario: registrar,
     plataforma: function () { return plataforma; },
