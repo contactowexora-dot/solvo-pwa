@@ -638,11 +638,17 @@ const App = (function () {
           '<span class="crece t-card-title" style="text-align:left">Objetivos</span>' +
           UI.ico('chevron-right') +
         '</button>' +
-        '<button type="button" class="fila pulsable fila-opcion" data-al="caja" ' +
-          'style="margin-bottom:var(--sp-5)">' +
+        '<button type="button" class="fila pulsable fila-opcion" data-al="caja">' +
           '<span class="ico-cat ico-cat-sm" style="--color-cat:var(--cat-indigo)">' +
             UI.ico('wallet') + '</span>' +
           '<span class="crece t-card-title" style="text-align:left">Control de caja</span>' +
+          UI.ico('chevron-right') +
+        '</button>' +
+        '<button type="button" class="fila pulsable fila-opcion" data-al="bancos" ' +
+          'style="margin-bottom:var(--sp-5)">' +
+          '<span class="ico-cat ico-cat-sm" style="--color-cat:var(--cat-indigo)">' +
+            UI.ico('landmark') + '</span>' +
+          '<span class="crece t-card-title" style="text-align:left">Bancos (correo automático)</span>' +
           UI.ico('chevron-right') +
         '</button>' +
 
@@ -694,6 +700,11 @@ const App = (function () {
       if (e.target.closest('[data-al="caja"]')) {
         hoja.cerrar();
         ir('caja');
+        return;
+      }
+      if (e.target.closest('[data-al="bancos"]')) {
+        hoja.cerrar();
+        ir('bancos');
       }
     });
   }
