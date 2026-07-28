@@ -9,7 +9,15 @@
  *
  * La cifra se pinta antes que el gráfico, siempre. ECharts son 251 KB y la regla del §9.2
  * dice que el valor vive en la cabecera, no en el eje: la tarjeta ya sirve sin su dibujo.
+ *
+ * Todo el archivo vive dentro de un IIFE por una razón muy concreta: nombres como
+ * `conectar`, `montar` o `escalonar` se repiten en varias pantallas, y una `function` de
+ * nivel superior en un script clásico se cuelga del mismo objeto global para TODOS los
+ * `<script>` de la página. Sin el IIFE, la última pantalla en cargar pisa la función de
+ * las anteriores y sus gestos dejan de responder — en silencio, porque JS no avisa de una
+ * redeclaración así.
  */
+(function () {
 
 /** Periodo mostrado. Vive fuera del render porque sobrevive a los repintados. */
 let _periodoInicio = null;
@@ -453,3 +461,5 @@ function fechaCorta(iso) {
   if (p.length !== 3) return String(iso);
   return Number(p[2]) + ' ' + (MESES[Number(p[1]) - 1] || '').slice(0, 3);
 }
+
+})();

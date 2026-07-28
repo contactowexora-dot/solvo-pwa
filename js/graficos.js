@@ -341,12 +341,391 @@ const Graficos = (function () {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DASHBOARD (Manual 1 §8.3) — G1 a G8 de Agregados.dashboard
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Estos siete constructores reciben datos YA formateados por la pantalla (fechas
+  // convertidas a etiquetas cortas, etc): a `graficos.js` no le corresponde saber de
+  // periodos ni de meses, solo de dibujar. Es la misma separación que ya usaba G1: quien
+  // monta el gráfico prepara los datos, este archivo solo sabe de ECharts y de tokens.
+
+  /**
+   * Flujo de dinero: barras divergentes sobre el mismo eje —ingresos arriba, egresos
+   * abajo— con la línea del flujo neto encima (§8.3.1, §9.6 G4). El eje cero es la línea
+   * de base discontinua; sin eje Y en ningún lado.
+   */
+  function opcionesFlujo(datos, moneda) {
+    const p = paleta();
+    const etiquetas = datos.etiquetas || [];
+    const ingresos = datos.ingresos || [];
+    const egresos = datos.egresos || [];
+    const neto = datos.neto || [];
+    const egresosNeg = egresos.map(function (v) { return -v; });
+    const maxAbs = Math.max(
+      ingresos.reduce(function (m, v) { return Math.max(m, v); }, 0),
+      egresos.reduce(function (m, v) { return Math.max(m, v); }, 0), 1);
+
+    function fila(nombre, valor) {
+      return '<div style="display:flex;justify-content:space-between;gap:10px">' +
+             '<span>' + nombre + '</span><b style="font-variant-numeric:tabular-nums">' +
+             UI.monto(valor, moneda, { sinSigno: true }) + '</b></div>';
+    }
+
+    return {
+      animation: !reducido(), animationDuration: 420,
+      animationDelay: function (i) { return i * 30; }, animationEasing: 'cubicOut',
+      grid: { left: 0, right: 12, top: 20, bottom: 24, containLabel: false },
+      xAxis: {
+        type: 'category', data: etiquetas,
+        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+        axisLabel: { color: p.texto3, fontSize: 11, fontWeight: 600, fontFamily: 'Inter',
+                     letterSpacing: 0.9 }
+      },
+      yAxis: { type: 'value', show: false, min: -maxAbs * 1.15, max: maxAbs * 1.15 },
+      tooltip: {
+        trigger: 'axis', backgroundColor: p.ink, borderWidth: 0, padding: [8, 12],
+        extraCssText: 'border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.18)',
+        textStyle: { color: p.onInk, fontSize: 12, fontFamily: 'Inter' },
+        formatter: function (ps) {
+          if (!ps || !ps.length) return '';
+          const i = ps[0].dataIndex;
+          return '<div style="font-weight:600;margin-bottom:4px;opacity:.7">' +
+                 etiquetas[i] + '</div>' +
+                 fila('Ingresos', ingresos[i]) + fila('Egresos', egresos[i]) +
+                 fila('Neto', neto[i]);
+        }
+      },
+      series: [
+        { name: 'Ingresos', type: 'bar', data: ingresos, barWidth: '40%', barMaxWidth: 32, z: 2,
+          itemStyle: { borderRadius: [6, 6, 0, 0],
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+              { offset: 0, color: p.positivo }, { offset: 1, color: mezclar(p.positivo, 0.55) }] } } },
+        { name: 'Egresos', type: 'bar', data: egresosNeg, barWidth: '40%', barMaxWidth: 32, z: 2,
+          itemStyle: { borderRadius: [0, 0, 6, 6],
+            color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+              { offset: 0, color: mezclar(p.negativo, 0.55) }, { offset: 1, color: p.negativo }] } } },
+        Object.assign(serieLinea({ nombre: 'Flujo neto', datos: neto, color: p.ink,
+          area: false, moneda: moneda, z: 3 }),
+          { symbol: 'circle', symbolSize: 6, showSymbol: true, markLine: lineaBase() })
+      ]
+    };
+  }
+
+  /**
+   * Base de las barras horizontales de G2 y G4: eje de categorías a la izquierda, sin eje
+   * de valor —la cifra va al final de cada barra, no en una escala (§9.2)—.
+   */
+  function baseBarraHorizontal(nombres, p) {
+    return {
+      grid: { left: 8, right: 64, top: 4, bottom: 4, containLabel: true },
+      xAxis: { type: 'value', show: false },
+      yAxis: {
+        type: 'category', inverse: true, data: nombres,
+        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+        axisLabel: {
+          color: p.texto2, fontSize: 13, fontWeight: 500, fontFamily: 'Inter',
+          formatter: function (v) { return v.length > 18 ? v.slice(0, 17) + '…' : v; }
+        }
+      }
+    };
+  }
+
+  /** Gasto por categoría: barras horizontales, top 5, con el monto al final de cada una (§8.3.2). */
+  function opcionesGastoCategoria(items, moneda) {
+    const p = paleta();
+    const nombres = items.map(function (it) { return it.nombre; });
+    const valores = items.map(function (it) { return it.monto; });
+    const colores = items.map(function (it) { return it.color || p.acento; });
+    const maximo = valores.reduce(function (m, v) { return Math.max(m, v); }, 0) || 1;
+
+    const base = baseBarraHorizontal(nombres, p);
+    base.xAxis.max = maximo * 1.2;
+    return Object.assign(base, {
+      animation: !reducido(), animationDuration: 420, animationEasing: 'cubicOut',
+      tooltip: {
+        trigger: 'item', backgroundColor: p.ink, borderWidth: 0, padding: [8, 12],
+        extraCssText: 'border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18)',
+        textStyle: { color: p.onInk, fontSize: 12, fontFamily: 'Inter' },
+        formatter: function (pr) { return UI.monto(pr.value, moneda, { sinSigno: true }); }
+      },
+      series: [{
+        type: 'bar', data: valores, barWidth: '62%', barMaxWidth: 28,
+        itemStyle: { borderRadius: [0, 8, 8, 0],
+          color: function (pr) { return colores[pr.dataIndex]; } },
+        label: {
+          show: true, position: 'right', color: p.texto2, fontSize: 12, fontWeight: 600,
+          formatter: function (pr) {
+            return UI.monto(pr.value, moneda, { sinSigno: true, sinDecimales: true });
+          }
+        }
+      }]
+    });
+  }
+
+  /**
+   * Evolución del patrimonio: línea con área, un solo valor por mes (§8.3.3). El color
+   * sigue el signo del último punto: verde si el patrimonio es positivo, rojo si no.
+   */
+  function opcionesPatrimonio(datos, moneda) {
+    const p = paleta();
+    const etiquetas = datos.etiquetas || [];
+    const valores = datos.valores || [];
+    const color = (valores[valores.length - 1] || 0) >= 0 ? p.positivo : p.negativo;
+
+    const base = baseLineaBarra({ x: etiquetas, series: 1 });
+    base.tooltip.formatter = function (ps) {
+      if (!ps || !ps.length) return '';
+      const s = ps[0];
+      return '<span style="opacity:.7">' + s.axisValue + '</span>  ' +
+             '<b style="font-variant-numeric:tabular-nums">' +
+             UI.monto(s.value, moneda, { sinSigno: true }) + '</b>';
+    };
+    // El patrimonio puede ser negativo (más deuda que activos): el mínimo del eje no puede
+    // quedarse fijo en 0 o la línea se recortaría por abajo.
+    base.yAxis = Object.assign({}, base.yAxis, {
+      min: function (v) { return v.min < 0 ? v.min * 1.12 : 0; },
+      max: function (v) { return v.max * 1.12 || 1; }
+    });
+
+    return Object.assign(base, {
+      series: [Object.assign(serieLinea({
+        nombre: 'Patrimonio', datos: valores, color: color, moneda: moneda
+      }), { markLine: lineaBase() })]
+    });
+  }
+
+  /**
+   * Gasto por pasivos: barras horizontales apiladas con tres segmentos —capital, interés,
+   * comisiones y seguros—, y el TOTAL escrito al final de la barra (§8.3.4). El capital va
+   * en gris: no es lo que la deuda cuesta, solo cambia de bolsillo.
+   */
+  function opcionesGastoPasivos(items, moneda) {
+    const p = paleta();
+    const nombres = items.map(function (it) { return it.nombre; });
+    const capital = items.map(function (it) { return it.capital; });
+    const interes = items.map(function (it) { return it.interes; });
+    const comisiones = items.map(function (it) { return it.comisiones; });
+    const totales = items.map(function (it) { return it.total; });
+    const maximo = totales.reduce(function (m, v) { return Math.max(m, v); }, 0) || 1;
+
+    const base = baseBarraHorizontal(nombres, p);
+    base.xAxis.max = maximo * 1.25;
+    return Object.assign(base, {
+      animation: !reducido(), animationDuration: 420, animationEasing: 'cubicOut',
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        backgroundColor: p.ink, borderWidth: 0, padding: [8, 12],
+        extraCssText: 'border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.18)',
+        textStyle: { color: p.onInk, fontSize: 12, fontFamily: 'Inter' },
+        formatter: function (ps) {
+          if (!ps || !ps.length) return '';
+          const i = ps[0].dataIndex;
+          const filas = ps.filter(function (s) { return s.value > 0; }).map(function (s) {
+            return '<div style="display:flex;justify-content:space-between;gap:10px">' +
+                   '<span>' + s.marker + s.seriesName + '</span>' +
+                   '<b style="font-variant-numeric:tabular-nums">' +
+                   UI.monto(s.value, moneda, { sinSigno: true }) + '</b></div>';
+          }).join('');
+          return '<div style="font-weight:600;margin-bottom:4px;opacity:.7">' +
+                 nombres[i] + '</div>' + filas +
+                 '<div style="display:flex;justify-content:space-between;gap:10px;' +
+                 'margin-top:4px;border-top:1px solid rgba(255,255,255,.2);padding-top:4px">' +
+                 '<span>Total</span><b style="font-variant-numeric:tabular-nums">' +
+                 UI.monto(totales[i], moneda, { sinSigno: true }) + '</b></div>';
+        }
+      },
+      series: [
+        { name: 'Capital', type: 'bar', stack: 'total', data: capital,
+          barWidth: '56%', barMaxWidth: 26,
+          itemStyle: { color: p.bordeFuerte, borderRadius: [8, 0, 0, 8] } },
+        { name: 'Interés', type: 'bar', stack: 'total', data: interes,
+          barWidth: '56%', barMaxWidth: 26, itemStyle: { color: p.negativo } },
+        { name: 'Comisiones y seguros', type: 'bar', stack: 'total', data: comisiones,
+          barWidth: '56%', barMaxWidth: 26,
+          itemStyle: { color: mezclar(p.negativo, 0.55), borderRadius: [0, 8, 8, 0] },
+          label: {
+            show: true, position: 'right', color: p.texto2, fontSize: 12, fontWeight: 600,
+            formatter: function (pr) {
+              return UI.monto(totales[pr.dataIndex], moneda, { sinSigno: true, sinDecimales: true });
+            }
+          } }
+      ]
+    });
+  }
+
+  /**
+   * Heatmap categoría × mes (§8.3.6). Este SÍ lleva su propia escala —el `visualMap`—
+   * porque es la excepción del §9.2: el color necesita esa referencia y aquí no hay otra
+   * cifra protagonista que la sustituya. Cada celda lleva además su valor como texto: el
+   * color solo no basta como información accesible.
+   */
+  function opcionesHeatmap(datos, moneda) {
+    const p = paleta();
+    const etiquetasX = datos.etiquetasX || [];
+    const categorias = datos.categorias || [];
+    const nombresY = categorias.map(function (c) { return c.nombre; });
+    const celdas = [];
+    categorias.forEach(function (c, yi) {
+      (c.valores || []).forEach(function (v, xi) { celdas.push([xi, yi, v]); });
+    });
+
+    return {
+      animation: !reducido(), animationDuration: 420,
+      grid: { left: 8, right: 8, top: 8, bottom: 52, containLabel: true },
+      xAxis: {
+        type: 'category', data: etiquetasX,
+        axisLine: { show: false }, axisTick: { show: false }, splitArea: { show: false },
+        axisLabel: { color: p.texto3, fontSize: 11, fontWeight: 600, fontFamily: 'Inter',
+                     letterSpacing: 0.9 }
+      },
+      yAxis: {
+        type: 'category', data: nombresY, inverse: true,
+        axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: {
+          color: p.texto2, fontSize: 12, fontFamily: 'Inter',
+          formatter: function (v) { return v.length > 14 ? v.slice(0, 13) + '…' : v; }
+        }
+      },
+      visualMap: {
+        show: true, min: 0, max: datos.valor_maximo || 1,
+        orient: 'horizontal', left: 'center', bottom: 4,
+        itemWidth: 10, itemHeight: 80, calculable: false,
+        textStyle: { color: p.texto3, fontSize: 10 },
+        inRange: { color: [css('--bg-inset'), p.acento] }
+      },
+      tooltip: {
+        trigger: 'item', backgroundColor: p.ink, borderWidth: 0, padding: [8, 12],
+        extraCssText: 'border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.18)',
+        textStyle: { color: p.onInk, fontSize: 12, fontFamily: 'Inter' },
+        formatter: function (pr) {
+          return '<div style="font-weight:600;margin-bottom:2px;opacity:.7">' +
+                 nombresY[pr.value[1]] + ' · ' + etiquetasX[pr.value[0]] + '</div>' +
+                 '<b style="font-variant-numeric:tabular-nums">' +
+                 UI.monto(pr.value[2], moneda, { sinSigno: true }) + '</b>';
+        }
+      },
+      series: [{
+        type: 'heatmap', data: celdas,
+        itemStyle: { borderRadius: 4, borderWidth: 2, borderColor: css('--bg-surface') },
+        label: {
+          show: true, color: p.texto2, fontSize: 10, fontWeight: 600,
+          formatter: function (pr) {
+            return pr.value[2] > 0
+              ? UI.monto(pr.value[2], moneda, { sinSigno: true, sinDecimales: true }) : '';
+          }
+        },
+        emphasis: { itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,.15)' } }
+      }]
+    };
+  }
+
+  /**
+   * Sankey del flujo de dinero, solo escritorio (§8.3.1). Origen → «Ingresos del periodo»
+   * → categorías de gasto. Las categorías menores al 3% ya llegan agregadas en «Otros»
+   * desde el backend.
+   */
+  function opcionesSankey(flujos, moneda) {
+    const p = paleta();
+    const nodos = {};
+    (flujos || []).forEach(function (f) { nodos[f.origen] = 1; nodos[f.destino] = 1; });
+
+    return {
+      animation: !reducido(), animationDuration: 420,
+      tooltip: {
+        trigger: 'item', triggerOn: 'mousemove',
+        backgroundColor: p.ink, borderWidth: 0, padding: [8, 12],
+        extraCssText: 'border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.18)',
+        textStyle: { color: p.onInk, fontSize: 12, fontFamily: 'Inter' },
+        formatter: function (pr) {
+          if (pr.dataType === 'edge') {
+            return pr.data.source + ' → ' + pr.data.target + '<br><b ' +
+                   'style="font-variant-numeric:tabular-nums">' +
+                   UI.monto(pr.data.value, moneda, { sinSigno: true }) + '</b>';
+          }
+          return pr.name;
+        }
+      },
+      series: [{
+        type: 'sankey',
+        data: Object.keys(nodos).map(function (n) { return { name: n }; }),
+        links: (flujos || []).map(function (f) {
+          return { source: f.origen, target: f.destino, value: f.monto };
+        }),
+        emphasis: { focus: 'adjacency' },
+        lineStyle: { color: 'gradient', opacity: 0.35, curveness: 0.5 },
+        itemStyle: { color: p.acento, borderColor: css('--bg-surface') },
+        label: { color: p.texto2, fontSize: 11, fontFamily: 'Inter' },
+        nodeWidth: 14, nodeGap: 12
+      }]
+    };
+  }
+
+  /**
+   * Cascada del Control de caja, bloque 8 (Manual 5 §A.7). Dos series apiladas por barra:
+   * una transparente que hace de «offset» y otra visible del alto real. Las tres barras
+   * del medio flotan; la primera y la última nacen en cero.
+   */
+  function opcionesCascada(barras, moneda) {
+    const p = paleta();
+    const mapaColor = { positive: p.positivo, negative: p.negativo, accent: p.acento, ink: p.ink };
+    const etiquetas = barras.map(function (b) { return String(b.etiqueta).toUpperCase(); });
+    const offset = barras.map(function (b) { return Math.min(b.desde, b.hasta); });
+    const alturas = barras.map(function (b) { return Math.abs(b.hasta - b.desde); });
+    const valores = barras.map(function (b) { return b.valor; });
+    const colores = barras.map(function (b) { return mapaColor[b.color] || p.acento; });
+    const maximo = barras.reduce(function (m, b) { return Math.max(m, b.desde, b.hasta); }, 0) || 1;
+
+    return {
+      animation: !reducido(), animationDuration: 420,
+      animationDelay: function (i) { return i * 40; }, animationEasing: 'cubicOut',
+      grid: { left: 0, right: 0, top: 28, bottom: 24, containLabel: false },
+      xAxis: {
+        type: 'category', data: etiquetas,
+        axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+        axisLabel: { color: p.texto3, fontSize: 11, fontWeight: 600, fontFamily: 'Inter',
+                     letterSpacing: 0.9 }
+      },
+      yAxis: { type: 'value', show: false, min: 0, max: maximo * 1.2 },
+      tooltip: {
+        trigger: 'item', backgroundColor: p.ink, borderWidth: 0, padding: [8, 12],
+        extraCssText: 'border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18)',
+        textStyle: { color: p.onInk, fontSize: 12, fontFamily: 'Inter' },
+        formatter: function (pr) {
+          if (pr.seriesIndex === 0) return '';
+          return UI.monto(valores[pr.dataIndex], moneda, { sinSigno: true });
+        }
+      },
+      series: [
+        { name: 'offset', type: 'bar', stack: 'cascada', data: offset, silent: true,
+          itemStyle: { color: 'transparent' } },
+        { name: 'valor', type: 'bar', stack: 'cascada', data: alturas,
+          barWidth: '40%', barMaxWidth: 48,
+          itemStyle: { borderRadius: 6, color: function (pr) { return colores[pr.dataIndex]; } },
+          label: {
+            show: true, position: 'top', color: p.texto2, fontSize: 12, fontWeight: 600,
+            formatter: function (pr) {
+              return UI.monto(valores[pr.dataIndex], moneda, { sinSigno: true, sinDecimales: true });
+            }
+          } }
+      ]
+    };
+  }
+
   return {
     cargar: cargar,
     montar: montar,
     destruirTodos: destruirTodos,
     retematizarTodos: retematizarTodos,
     opcionesG1: opcionesG1,
+    // Dashboard (Paso 13).
+    opcionesFlujo: opcionesFlujo,
+    opcionesGastoCategoria: opcionesGastoCategoria,
+    opcionesPatrimonio: opcionesPatrimonio,
+    opcionesGastoPasivos: opcionesGastoPasivos,
+    opcionesHeatmap: opcionesHeatmap,
+    opcionesSankey: opcionesSankey,
+    opcionesCascada: opcionesCascada,
     // Piezas reutilizables por los gráficos de los pasos siguientes.
     base: baseLineaBarra,
     serieLinea: serieLinea,

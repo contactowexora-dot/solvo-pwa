@@ -477,8 +477,7 @@ const App = (function () {
   /** Las pantallas que aún no existen dicen en qué paso llegan, no «404». */
   function marcadorDePaso(ruta) {
     const cuando = {
-      movimientos: 'Paso 12', dashboard: 'Paso 13',
-      presupuesto: 'Paso 14', productos: 'Paso 14'
+      presupuesto: 'Paso 15'
     }[ruta] || 'un paso próximo';
     return UI.vacio({
       icono: 'sparkles',

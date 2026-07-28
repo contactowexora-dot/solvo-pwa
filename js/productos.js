@@ -7,7 +7,13 @@
  *
  * Se adelanta porque sin un producto el formulario de gasto no tiene dónde poner nada, y
  * mandar a alguien a crear filas a mano en el Sheet es justo lo que la app existe para evitar.
+ *
+ * Dentro de un IIFE por lo mismo que el resto de pantallas: una `function` de nivel
+ * superior en un script clásico es global para toda la página, y dos pantallas con una
+ * función del mismo nombre se pisan en silencio.
  */
+(function () {
+
 App.registrar('productos', async function (vista) {
   vista.innerHTML = '<div class="tarjeta pila pila-3">' + UI.huesosFilas(3) + '</div>';
 
@@ -136,3 +142,5 @@ function bloqueTarjetas(tarjetas, m) {
     }).join('') +
   '</section>';
 }
+
+})();

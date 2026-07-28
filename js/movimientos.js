@@ -16,7 +16,14 @@
  *
  * 3. **El gesto de deslizar revela un botón; NO ejecuta la acción.** Es explícito en el §8.2 y
  *    es la diferencia entre una app en la que confías y una en la que borras algo sin querer.
+ *
+ * Todo el archivo vive dentro de un IIFE: nombres como `conectar`, `montar` o `leyenda` se
+ * repiten en varias pantallas, y una `function` de nivel superior en un script clásico se
+ * cuelga del mismo objeto global para TODOS los `<script>` de la página. Sin el IIFE, la
+ * última pantalla en cargar pisa la de las anteriores y sus gestos dejan de responder — en
+ * silencio, porque JS no avisa de una redeclaración así.
  */
+(function () {
 
 const Movs = (function () {
 
@@ -881,3 +888,5 @@ function fechaLarga(iso) {
   const anio = Number(p[0]) === new Date().getFullYear() ? '' : ' ' + p[0];
   return Number(p[2]) + ' de ' + mes + anio;
 }
+
+})();
