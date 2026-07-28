@@ -629,14 +629,35 @@ async function editar(fila) {
   UI.avisar('La edición de movimientos llega en el Paso 16.');
 }
 
+/**
+ * Con `Api.leer` (§14: docs/TRASPASO.md §1.H/I): si ya se abrió este movimiento antes,
+ * la hoja se abre con ese contenido AL INSTANTE, sin el aviso «Abriendo…» — y si el
+ * servidor trae algo distinto (se editó desde otro sitio, por ejemplo), el contenido
+ * de la propia hoja se actualiza en el sitio, sin cerrarla ni reabrirla.
+ */
 async function abrirDetalle(idOperacion) {
-  const cerrar = UI.avisar('Abriendo…', { ms: 6000 });
+  let hoja = null;
+  // Se muestra ANTES de pedir nada: si había algo en caché, `Api.leer` lo entrega
+  // casi enseguida y este aviso apenas se alcanza a ver; sin caché, es lo único que
+  // dice «ya te escuché» mientras responde el servidor.
+  let cerrarAviso = UI.avisar('Abriendo…', { ms: 6000 });
+
   try {
-    const d = await Api.llamar('movimientos.detalle', { id_operacion: idOperacion });
-    cerrar();
-    UI.abrirHoja({ titulo: d.comercio || 'Movimiento', html: detalleHtml(d) });
+    await Api.leer('movimientos.detalle', { id_operacion: idOperacion },
+      { clave: 'mov-detalle' }, function (d) {
+        if (cerrarAviso) { cerrarAviso(); cerrarAviso = null; }
+        if (!hoja) {
+          hoja = UI.abrirHoja({ titulo: d.comercio || 'Movimiento', html: detalleHtml(d) });
+        } else {
+          // La hoja ya estaba abierta con la versión de caché: se le cambia el
+          // contenido por el fresco, sin cerrarla (cerrarla a mitad de lectura sería
+          // más brusco que el número quieto un instante de más).
+          const cuerpo = hoja.el.querySelector('.pila, [data-detalle-cuerpo]') || hoja.el;
+          cuerpo.outerHTML = detalleHtml(d);
+        }
+      });
   } catch (e) {
-    cerrar();
+    if (cerrarAviso) cerrarAviso();
     UI.avisarError(e);
   }
 }
