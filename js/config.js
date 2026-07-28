@@ -33,7 +33,7 @@ window.SOLVO_CONFIG = {
   MINUTOS_MARGEN_TOKEN: 5,
 
   /* Versión del cascarón. La usa el Service Worker para invalidar su caché. */
-  VERSION: '15.0.0'
+  VERSION: '15.0.1'
 };
 
 /** ¿Están puestos los dos valores? Admite un reemplazo temporal por localStorage. */

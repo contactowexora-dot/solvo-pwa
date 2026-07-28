@@ -131,13 +131,18 @@ function bloquePrediccion(d, m) {
 }
 
 function listaCategorias(d, m) {
+  const cabecera = '<div class="fila-entre" style="margin-top:var(--sp-4)">' +
+    '<span class="t-overline txt-2">Categorías</span>' +
+    '<button class="btn-icono pulsable" data-al="agregar-limite" ' +
+      'aria-label="Asignar presupuesto a una categoría">' + UI.ico('plus') + '</button>' +
+  '</div>';
   const conBudget = d.categorias.map(function (c) { return filaCategoria(c, m); }).join('');
   const sinBudget = d.sin_presupuesto.length
     ? '<p class="t-overline txt-2" style="margin:var(--sp-4) 0 var(--sp-2)">Sin presupuesto</p>' +
       d.sin_presupuesto.map(function (c) { return filaSinPresupuesto(c, m); }).join('')
     : '';
-  return '<div class="pila pila-3" style="margin-top:var(--sp-4)" data-lista>' + conBudget +
-    '</div>' + sinBudget;
+  return cabecera + '<div class="pila pila-3" style="margin-top:var(--sp-2)" data-lista>' +
+    conBudget + '</div>' + sinBudget;
 }
 
 function nivelColorPres_(nivel) {
@@ -194,6 +199,20 @@ function conectar(vista) {
 
   vista.addEventListener('click', function (e) {
     if (e.target.closest('[data-al="caja"]')) { App.ir('caja'); return; }
+
+    if (e.target.closest('[data-al="agregar-limite"]')) {
+      // Cualquier categoría de gasto, no solo las que ya tienen consumo este periodo —
+      // sin esto no había forma de presupuestar una categoría antes de gastar en ella.
+      Formularios.elegirCategoria('GASTO', null, function (idCat) {
+        if (categoriaPorId(idCat)) {
+          return UI.avisar('Esa categoría ya tiene un presupuesto asignado.', { error: true });
+        }
+        const cat = Formularios.buscarCategoria(idCat);
+        abrirAsignarLimite({ id_categoria: idCat, nombre: cat.nombre,
+                              presupuestado: 0, es_recurrente: false });
+      });
+      return;
+    }
 
     const asignar = e.target.closest('[data-asignar]');
     if (asignar) {

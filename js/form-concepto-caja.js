@@ -76,6 +76,8 @@ function formularioConceptoCaja(existente) {
         valor: existente && existente.dia_mes, placeholder: 'Ej. 5',
         ayuda: 'Cuándo esperas que ocurra. Opcional.' }) +
 
+      // Solo tiene sentido para un gasto: clasifica necesidad/deseo en el reparto
+      // 50/30/20 (Manual 5 §A.4). Un ingreso no se reparte en esos tres bloques.
       Campos.interruptor({ id: idEsencial, texto: 'Es una necesidad, no un deseo',
         valor: existente ? existente.es_esencial === true : false,
         ayuda: 'Clasifica el concepto en el reparto 50/30/20 de Control de caja.' })
@@ -83,13 +85,20 @@ function formularioConceptoCaja(existente) {
 
   const raiz = api.cuerpo;
 
+  /** Grupo de categoría según el tipo — GASTO para gasto fijo, INGRESO para los dos
+   *  ingresos. Se lee del segmentado en vivo, no de `est.tipo`: quedarse con el valor
+   *  de creación es lo que hacía que, tras cambiar el tipo, el selector siguiera
+   *  abriendo categorías del grupo equivocado. */
+  function grupoCategoriaActual() {
+    return Campos.valor(raiz, idTipo) === 'GASTO_FIJO' ? 'GASTO' : 'INGRESO';
+  }
+
   raiz.addEventListener('click', function (e) {
     const sel = e.target.closest('[data-abre]');
     if (!sel) return;
 
     if (sel.dataset.abre === 'categoria') {
-      const grupo = est.tipo === 'GASTO_FIJO' ? 'GASTO' : 'INGRESO';
-      Formularios.elegirCategoria(grupo, est.categoria, function (idCat) {
+      Formularios.elegirCategoria(grupoCategoriaActual(), est.categoria, function (idCat) {
         est.categoria = idCat;
         const cat = Formularios.buscarCategoria(idCat);
         Campos.fijarSelector(sel, idCat, cat.nombre, cat.icono, cat.color);
@@ -119,7 +128,26 @@ function formularioConceptoCaja(existente) {
     return !!Campos.valor(raiz, idNombre) && monto !== null && monto > 0;
   }
 
-  function revisar() { api.botón.disabled = !completo(); api.ensuciar(); }
+  /** A partir del estado, no del evento que lo cambió (mismo motivo que form-gasto.js):
+   *  `Campos.conectar` registra su manejador del segmentado antes que el nuestro, así
+   *  que para cuando esto corre `Campos.valor(raiz, idTipo)` ya está actualizado. */
+  function sincronizar() {
+    const esGasto = grupoCategoriaActual() === 'GASTO';
+
+    raiz.querySelector('[data-campo="' + idEsencial + '"]').hidden = !esGasto;
+
+    // Si la categoría elegida ya no es del grupo que corresponde al tipo actual, se
+    // limpia: un «Sueldo» clasificado en «Comida» no significa nada.
+    if (est.categoria) {
+      const cat = Formularios.buscarCategoria(est.categoria);
+      if (!cat || cat.grupo !== grupoCategoriaActual()) {
+        est.categoria = '';
+        Campos.fijarSelector(raiz.querySelector('#' + idCategoria), '', '');
+      }
+    }
+  }
+
+  function revisar() { sincronizar(); api.botón.disabled = !completo(); api.ensuciar(); }
   Campos.conectar(raiz, revisar);
   revisar();
 
