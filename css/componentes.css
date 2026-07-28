@@ -949,3 +949,75 @@
 @media (min-width: 1024px) {
   .grafico-zona { height: 180px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PANTALLA DASHBOARD (Manual 1 §8.3 · Manual 3 §9.6 · Manual 5 §A.7)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.seccion-dash + .seccion-dash { margin-top: var(--sp-3); }
+
+/* Cada bloque de gráfico tiene su propio alto: los de barras horizontales lo calculan en
+   línea según cuántos elementos traen (§9.7: el marco no puede depender del contenido para
+   NO saltar al repintar, pero aquí el número de categorías sí es estable dentro de un mismo
+   periodo, así que fijarlo por JS antes de montar el gráfico no reintroduce ese salto). */
+.grafico-dash { height: 220px; }
+.grafico-lista { margin-top: var(--sp-3); }
+
+/* ── Timeline de próximos pagos (§8.3.5), en CSS puro ─────────────────────────
+   No hay tooltip de ejes que justifique traer ECharts para una recta con marcadores. */
+.timeline {
+  position: relative;
+  height: 72px;
+  margin-top: var(--sp-6);
+}
+.timeline-linea {
+  position: absolute; left: 0; right: 0; top: 32px;
+  height: 1px; background: var(--border);
+}
+.timeline-mes {
+  position: absolute; top: 0; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--sp-1);
+}
+.timeline-marca {
+  position: absolute; top: 32px;
+  width: var(--tam, 14px); height: var(--tam, 14px);
+  transform: translate(-50%, -50%);
+  border-radius: var(--r-pill);
+  background: var(--color-marca, var(--accent));
+  border: 2px solid var(--bg-surface);
+  box-shadow: var(--sh-xs);
+  min-width: 14px; min-height: 14px;
+}
+/* El área táctil real es 44×44 aunque el punto se vea más pequeño (§B.2 regla 5). */
+.timeline-marca::before {
+  content: ''; position: absolute; inset: 50% auto auto 50%;
+  width: max(44px, var(--tam)); height: max(44px, var(--tam));
+  transform: translate(-50%, -50%);
+}
+
+/* ── Fila de Presupuesto vs. gasto (§8.3.7) ───────────────────────────────────
+   Mismo componente que la barra de presupuesto de Inicio: fondo = presupuesto,
+   relleno = gasto real, cifra siempre en texto. */
+.presupuesto-fila {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  width: 100%; padding: var(--sp-2) 0;
+  text-align: left;
+}
+.presupuesto-fila + .presupuesto-fila { border-top: 1px solid var(--border); }
+
+@media (min-width: 1024px) {
+  .grafico-dash { height: 260px; }
+  /* El grid de 2 columnas del §8.3 escritorio: todos los bloques en pares salvo los que
+     necesitan ancho completo (flujo, timeline y heatmap, según la tabla del §8.3). Se
+     aplica a `.vista`, el contenedor real de los hijos directos —`.contenido` solo
+     envuelve esa única vista y no sirve de nada convertirlo a él en grid. */
+  .vista:has(> .seccion-dash) {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4);
+    align-items: start;
+  }
+  .vista:has(> .seccion-dash) > .carril-chips { grid-column: 1 / -1; }
+  [data-bloque="flujo"], [data-bloque="timeline"], [data-bloque="heatmap"] {
+    grid-column: 1 / -1;
+  }
+}
