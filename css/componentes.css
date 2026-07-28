@@ -951,6 +951,117 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   PANTALLA PRODUCTOS COMPLETA (Manual 1 §8.5 · Manual 4 §E.2 · Manual 5 §C)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Patrimonio neto (Productos) y total ahorrado (Objetivos): mismo componente, una
+   cifra grande centrada verticalmente con su contexto debajo. */
+.hero-patrimonio { padding-bottom: var(--sp-4); }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   PANTALLA OBJETIVOS (Manual 1 §8.6)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tarjeta con gesto de deslizar (§10.4), adaptada de `.mov` a una tarjeta completa
+   en vez de una fila delgada — mismo lenguaje, más alto. ─────────────────────────── */
+.obj-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+}
+.obj-card + .obj-card { margin-top: 0; }   /* el espaciado lo da `.pila-3` del contenedor */
+
+.obj-acciones {
+  position: absolute; inset: 0;
+  display: flex; justify-content: space-between;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.obj-accion {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-1);
+  width: 96px; min-height: 100%;
+  font-size: var(--t-caption); font-weight: 600;
+  color: #FFFFFF;
+}
+.obj-accion-izq { background: var(--accent); }
+.obj-accion-der { background: var(--negative); }
+
+.obj-card:not([data-abierta]) .obj-acciones { visibility: hidden; }
+.obj-card[data-abierta="izq"] .obj-accion-izq { visibility: hidden; }
+.obj-card[data-abierta="der"] .obj-accion-der { visibility: hidden; }
+
+.obj-carril {
+  position: relative;
+  display: block;
+  transition: transform 400ms cubic-bezier(0.22, 1.2, 0.36, 1);
+  touch-action: pan-y;
+}
+
+/* ── Círculo de progreso del detalle: `conic-gradient` sobre la variable `--pct` ──── */
+.obj-circulo {
+  display: grid; place-items: center;
+  width: 96px; height: 96px;
+  border-radius: var(--r-pill);
+  background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--bg-inset) 0);
+}
+.obj-circulo::before {
+  content: '';
+  position: absolute;
+  width: 76px; height: 76px;
+  border-radius: var(--r-pill);
+  background: var(--bg-surface);
+}
+.obj-circulo span { position: relative; z-index: 1; }
+
+/* ── Selector de ícono y color (form-objetivo.js) ─────────────────────────────────
+   La misma cuadrícula sirve para los 24 íconos del §6.9 y los 12 colores del §2.4. */
+.picker-preview { width: 64px; height: 64px; }
+.picker-preview .ico { width: 28px; height: 28px; }
+
+.picker-iconos {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2);
+}
+.picker-icono {
+  display: grid; place-items: center;
+  width: 100%; aspect-ratio: 1;
+  min-height: var(--tactil-min);
+  border-radius: var(--r-sm);
+  background: var(--bg-inset); color: var(--text-secondary);
+}
+.picker-icono[aria-pressed="true"] {
+  background: var(--accent-soft); color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.picker-colores {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-3);
+}
+.picker-color {
+  width: 100%; aspect-ratio: 1;
+  min-height: 36px;
+  border-radius: var(--r-pill);
+  background: var(--color-swatch);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+  position: relative;
+}
+.picker-color[aria-pressed="true"]::after {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: var(--r-pill);
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 3.5px var(--text-primary);
+}
+
+/* ── Escritorio ────────────────────────────────────────────────────────────────────
+   El §8.6 pide grid de 3 columnas y sustituir el gesto por un menú ⋮ en escritorio.
+   Lo segundo queda pendiente: el gesto de deslizar (arrastrar con el mouse) sigue
+   funcionando —los eventos de puntero no distinguen dedo de mouse—, pero no hay un
+   menú ⋮ explícito todavía. Anotado como pendiente en `docs/PASO-14-*.md`. */
+@media (min-width: 1024px) {
+  .picker-iconos, .picker-colores { grid-template-columns: repeat(8, 1fr); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    PANTALLA DASHBOARD (Manual 1 §8.3 · Manual 3 §9.6 · Manual 5 §A.7)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
