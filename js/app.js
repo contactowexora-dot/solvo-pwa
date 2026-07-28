@@ -505,9 +505,7 @@ const App = (function () {
 
   /** Las pantallas que aún no existen dicen en qué paso llegan, no «404». */
   function marcadorDePaso(ruta) {
-    const cuando = {
-      presupuesto: 'Paso 15'
-    }[ruta] || 'un paso próximo';
+    const cuando = {}[ruta] || 'un paso próximo';
     return UI.vacio({
       icono: 'sparkles',
       titulo: 'Esta pantalla llega en el ' + cuando,
@@ -564,7 +562,7 @@ const App = (function () {
    * abriría una hoja sin opciones.
    */
   const FORMULARIOS = { gasto: 1, ingreso: 1, mover: 1, cuenta: 1, tarjeta: 1,
-    prestamo: 1, inversion: 1, objetivo: 1 };
+    prestamo: 1, inversion: 1, objetivo: 1, 'concepto-caja': 1 };
 
   async function registrar(tipo, prellenado) {
     // Un tipo desconocido se queda callado si no se comprueba: eso fue exactamente lo que
@@ -591,6 +589,7 @@ const App = (function () {
       if (tipo === 'prestamo') return formularioPrestamo(prellenado);
       if (tipo === 'inversion') return formularioInversion(prellenado);
       if (tipo === 'objetivo') return formularioObjetivo(prellenado);
+      if (tipo === 'concepto-caja') return formularioConceptoCaja(prellenado);
     } catch (e) {
       cerrarAviso();
       if (e && (e.sesion || e.sinAcceso)) return Auth.cerrarSesion('rechazada');
@@ -631,12 +630,19 @@ const App = (function () {
         '</div>' +
 
         // Suscripciones, Patrimonio, Reportes, Administrar y Configuración llegan con el
-        // Paso 16 (Manual 1 §4.1: viven aquí, detrás del menú de perfil). Objetivos ya está.
-        '<button type="button" class="fila pulsable fila-opcion" data-al="objetivos" ' +
-          'style="margin-bottom:var(--sp-5)">' +
+        // Paso 16 (Manual 1 §4.1: viven aquí, detrás del menú de perfil). Objetivos y
+        // Control de caja ya están (Manual 5 §A.4: acceso también desde este menú).
+        '<button type="button" class="fila pulsable fila-opcion" data-al="objetivos">' +
           '<span class="ico-cat ico-cat-sm" style="--color-cat:var(--cat-indigo)">' +
             UI.ico('target') + '</span>' +
           '<span class="crece t-card-title" style="text-align:left">Objetivos</span>' +
+          UI.ico('chevron-right') +
+        '</button>' +
+        '<button type="button" class="fila pulsable fila-opcion" data-al="caja" ' +
+          'style="margin-bottom:var(--sp-5)">' +
+          '<span class="ico-cat ico-cat-sm" style="--color-cat:var(--cat-indigo)">' +
+            UI.ico('wallet') + '</span>' +
+          '<span class="crece t-card-title" style="text-align:left">Control de caja</span>' +
           UI.ico('chevron-right') +
         '</button>' +
 
@@ -683,6 +689,11 @@ const App = (function () {
       if (e.target.closest('[data-al="objetivos"]')) {
         hoja.cerrar();
         ir('objetivos');
+        return;
+      }
+      if (e.target.closest('[data-al="caja"]')) {
+        hoja.cerrar();
+        ir('caja');
       }
     });
   }

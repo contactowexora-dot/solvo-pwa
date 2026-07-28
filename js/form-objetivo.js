@@ -242,7 +242,10 @@ async function guardarObjetivo(api, editando, cuerpo, textoOk) {
     await Api.llamar(editando ? 'objetivo.editar' : 'objetivo.crear', cuerpo);
     api.cerrar(true);
     UI.avisar(textoOk);
-    App.recargar();
+    // Sin el parpadeo de esqueleto de `App.recargar()` (docs/TRASPASO.md §1) — este
+    // formulario solo lo abre la pantalla de Objetivos.
+    if (window.SolvoObjetivos) window.SolvoObjetivos.refrescarSilencioso();
+    else App.recargar();
   } catch (e) {
     api.ocupado(false);
     UI.avisarError(e);

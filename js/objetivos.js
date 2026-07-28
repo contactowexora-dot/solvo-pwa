@@ -27,6 +27,7 @@ const Obj = (function () {
 
 App.registrar('objetivos', async function (vista) {
   vista.innerHTML = esqueleto();
+  Obj.est.vista = vista;
 
   // `pintar()` necesita `Formularios.catalogos()` para la moneda base. Nada garantiza
   // que ya estén cargados: se llega aquí desde el menú de perfil, y esa ruta puede ser
@@ -223,6 +224,83 @@ function objetivoPorId(id) {
     .filter(function (o) { return o.id_objetivo === id; })[0] || null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ACTUALIZACIÓN OPTIMISTA
+//
+// Pausar, despausar y eliminar escriben en el servidor (Apps Script, ~1-3s por
+// petición — no se puede bajar de ahí, TRASPASO.md §1). Esperar esa vuelta con la
+// pantalla congelada, y encima repintar el esqueleto entero al terminar (como hacía
+// `App.recargar()`), es lo que se sentía lento. En vez de eso: se mueve el objetivo
+// entre listas EN MEMORIA y se repinta al instante, la llamada real va por detrás, y
+// solo si falla se deshace el cambio y se avisa del error.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function snapshotDatos_() { return JSON.parse(JSON.stringify(Obj.est.datos)); }
+
+function repintarActual_() {
+  if (!Obj.est.vista || !Obj.est.vista.isConnected) return;
+  pintar(Obj.est.vista);
+  conectarListaSolamente(Obj.est.vista);
+}
+
+/** Conteos y aporte comprometido dependen de qué hay en cada lista: se recalculan
+ *  aquí en vez de pedírselos otra vez al servidor. */
+function recalcularAgregados_(d) {
+  d.conteos = { activas: d.activas.length, pausadas: d.pausadas.length,
+                alcanzadas: d.alcanzadas.length };
+  d.aporte_mensual_comprometido = Math.round(d.activas.reduce(function (s, o) {
+    return s + (o.aporte_mensual_sugerido || 0);
+  }, 0) * 100) / 100;
+}
+
+function moverEntreListas_(id, desde, hacia, parche) {
+  const d = Obj.est.datos;
+  const idx = d[desde].findIndex(function (o) { return o.id_objetivo === id; });
+  if (idx === -1) return;
+  const o = Object.assign({}, d[desde][idx], parche);
+  d[desde].splice(idx, 1);
+  d[hacia].unshift(o);
+  recalcularAgregados_(d);
+}
+
+function quitarDeListas_(id) {
+  const d = Obj.est.datos;
+  ['activas', 'pausadas', 'alcanzadas'].forEach(function (clave) {
+    const idx = d[clave].findIndex(function (o) { return o.id_objetivo === id; });
+    if (idx !== -1) d[clave].splice(idx, 1);
+  });
+  recalcularAgregados_(d);
+}
+
+/** Reconcilia en silencio con el servidor (ahorrado, fechas…) sin tocar el esqueleto:
+ *  a diferencia de `App.recargar()`, si ya hay datos en pantalla se quedan mientras
+ *  llega la respuesta, en vez de taparlos con el esqueleto de carga otra vez. */
+function refrescarSilencioso_() {
+  Api.leer('objetivos.listar', {}, { clave: 'objetivos' }, function (d) {
+    Obj.est.datos = d;
+    repintarActual_();
+  }).catch(function () { /* la lista optimista ya en pantalla sigue siendo válida */ });
+}
+
+/**
+ * @param {Function} mutarLocal mueve/quita el objetivo de `Obj.est.datos` (ya mutado
+ *   cuando esta función se llama) — sirve para poder deshacerlo si `Api.llamar` falla.
+ */
+async function conOptimismo_(mutarLocal, llamarApi, mensajeExito) {
+  const respaldo = snapshotDatos_();
+  mutarLocal();
+  repintarActual_();
+  UI.avisar(mensajeExito);
+  try {
+    await llamarApi();
+    refrescarSilencioso_();
+  } catch (err) {
+    Obj.est.datos = respaldo;
+    repintarActual_();
+    UI.avisarError(err);
+  }
+}
+
 async function manejarAccion(accion, id, card) {
   const o = objetivoPorId(id);
   if (!o) return;
@@ -250,11 +328,17 @@ function confirmarCambioEstado(card, o, accionApi, titulo, mensaje) {
         if (e.target.closest('[data-no]')) { hoja.cerrar(); cerrarCard(card); return; }
         if (!e.target.closest('[data-si]')) return;
         hoja.cerrar();
-        try {
-          await Api.llamar('objetivo.' + accionApi, { id_objetivo: o.id_objetivo });
-          UI.avisar(accionApi === 'pausar' ? 'Objetivo pausado' : 'Objetivo despausado');
-          App.recargar();
-        } catch (err) { UI.avisarError(err); }
+
+        const desde = accionApi === 'pausar' ? 'activas' : 'pausadas';
+        const hacia = accionApi === 'pausar' ? 'pausadas' : 'activas';
+        conOptimismo_(
+          function () {
+            moverEntreListas_(o.id_objetivo, desde, hacia,
+              { estado: accionApi === 'pausar' ? 'PAUSADO' : 'ACTIVO' });
+          },
+          function () { return Api.llamar('objetivo.' + accionApi, { id_objetivo: o.id_objetivo }); },
+          accionApi === 'pausar' ? 'Objetivo pausado' : 'Objetivo despausado'
+        );
       });
     }
   });
@@ -268,9 +352,11 @@ function confirmarCambioEstado(card, o, accionApi, titulo, mensaje) {
  */
 async function eliminarObjetivo(o, alCancelar) {
   let info;
+  const cerrarAviso = UI.avisar('Un momento…', { ms: 6000 });
   try {
     info = await Api.llamar('objetivo.eliminar', { id_objetivo: o.id_objetivo });
-  } catch (e) { if (alCancelar) alCancelar(); return UI.avisarError(e); }
+  } catch (e) { cerrarAviso(); if (alCancelar) alCancelar(); return UI.avisarError(e); }
+  cerrarAviso();
 
   const esArchivar = info.accion === 'ARCHIVAR';
   const hoja = UI.abrirHoja({
@@ -285,12 +371,14 @@ async function eliminarObjetivo(o, alCancelar) {
         if (e.target.closest('[data-no]')) { hoja.cerrar(); if (alCancelar) alCancelar(); return; }
         if (!e.target.closest('[data-si]')) return;
         hoja.cerrar();
-        try {
-          await Api.llamar('objetivo.eliminar',
-            { id_objetivo: o.id_objetivo, confirmar: true });
-          UI.avisar(esArchivar ? 'Objetivo archivado' : 'Objetivo eliminado');
-          App.recargar();
-        } catch (err) { UI.avisarError(err); }
+
+        conOptimismo_(
+          function () { quitarDeListas_(o.id_objetivo); },
+          function () {
+            return Api.llamar('objetivo.eliminar', { id_objetivo: o.id_objetivo, confirmar: true });
+          },
+          esArchivar ? 'Objetivo archivado' : 'Objetivo eliminado'
+        );
       });
     }
   });
@@ -331,18 +419,20 @@ async function abrirDetalle(id) {
         }
         if (e.target.closest('[data-al="pausar"]')) {
           hoja.cerrar();
-          try {
-            await Api.llamar('objetivo.pausar', { id_objetivo: id });
-            UI.avisar('Objetivo pausado'); App.recargar();
-          } catch (err) { UI.avisarError(err); }
+          conOptimismo_(
+            function () { moverEntreListas_(id, 'activas', 'pausadas', { estado: 'PAUSADO' }); },
+            function () { return Api.llamar('objetivo.pausar', { id_objetivo: id }); },
+            'Objetivo pausado'
+          );
           return;
         }
         if (e.target.closest('[data-al="despausar"]')) {
           hoja.cerrar();
-          try {
-            await Api.llamar('objetivo.despausar', { id_objetivo: id });
-            UI.avisar('Objetivo despausado'); App.recargar();
-          } catch (err) { UI.avisarError(err); }
+          conOptimismo_(
+            function () { moverEntreListas_(id, 'pausadas', 'activas', { estado: 'ACTIVO' }); },
+            function () { return Api.llamar('objetivo.despausar', { id_objetivo: id }); },
+            'Objetivo despausado'
+          );
           return;
         }
         if (e.target.closest('[data-al="reiniciar"]')) { hoja.cerrar(); return abrirReiniciar(d); }
@@ -428,7 +518,7 @@ function abrirReiniciar(d) {
           const r = await Api.llamar('objetivo.reiniciar',
             { id_objetivo: d.id_objetivo, fecha_esperada: fecha });
           UI.avisar((r.avisos && r.avisos[0]) || 'Objetivo reiniciado');
-          App.recargar();
+          refrescarSilencioso_();
         } catch (err) { UI.avisarError(err); }
       });
     }
@@ -568,5 +658,10 @@ function fechaCortaObj(iso) {
   if (p.length !== 3) return String(iso);
   return Number(p[2]) + ' ' + (MESES_OBJ[Number(p[1]) - 1] || '');
 }
+
+// Puente mínimo para `form-objetivo.js` (único consumidor, verificado): tras crear o
+// editar, refresca esta pantalla sin el parpadeo de esqueleto de `App.recargar()`. Si
+// esta pantalla no está montada, `repintarActual_` no hace nada — no hace falta.
+window.SolvoObjetivos = { refrescarSilencioso: refrescarSilencioso_ };
 
 })();
