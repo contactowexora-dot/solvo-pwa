@@ -165,7 +165,10 @@
   --tactil-min:       44px;   /* NO escala: es un mínimo físico (§B.2 regla 5) */
 
   /* barra 64 + FAB por encima + aire */
-  --pad-inferior-contenido: 132px;
+  /* barra 64 + aire 12 + FAB 56 + aire 16 + colchón 16. El FAB va ENCIMA de la barra
+     (componentes.css), así que el contenido tiene que dejar sitio a los dos apilados o la
+     última fila de cualquier lista queda debajo y no se puede tocar. */
+  --pad-inferior-contenido: 164px;
   --hueco-seguro-inf: env(safe-area-inset-bottom, 0px);
 }
 

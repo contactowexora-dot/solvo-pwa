@@ -76,20 +76,27 @@ App.registrar('movimientos', async function (vista) {
     '<div class="tarjeta pila pila-3" data-lista>' + UI.huesosFilas(6) + '</div>';
 
   // Los catálogos hacen falta para resolver el nombre, el icono y el color de cada
-  // categoría: `movimientos.listar` devuelve los ids, no los nombres.
-  const [cat, d] = await Promise.all([
-    Formularios.cargarCatalogos(),
-    Api.llamar('movimientos.listar', Movs.parametros(), { clave: 'movs' })
-  ]);
-
+  // categoría: `movimientos.listar` devuelve los ids, no los nombres. Tienen su propia
+  // caché de sesión (`Formularios.cargarCatalogos`), así que van fuera de `Api.leer`.
+  const cat = await Formularios.cargarCatalogos();
   est.periodo = est.periodo || (cat.periodo_actual || null);
-  est.items = d.movimientos || [];
-  est.total = d.total || 0;
-  est.hayMas = d.hay_mas === true;
 
-  pintarLista(vista);
-  await pintarZona(vista);
-  conectar(vista);
+  // `Api.leer` pinta al instante lo último guardado en este teléfono y otra vez cuando
+  // responde el servidor (docs/TRASPASO.md §1.H/I) — por eso puede llamar a esta
+  // función dos veces, y por eso `conectar` está protegido para engancharse una sola.
+  await Api.leer('movimientos.listar', Movs.parametros(), { clave: 'movs' }, function (d) {
+    est.items = d.movimientos || [];
+    est.total = d.total || 0;
+    est.hayMas = d.hay_mas === true;
+
+    pintarLista(vista);
+    // Por si el gráfico de la zona ya estaba montado de la primera pintada (con datos
+    // de caché) y esta es la segunda (con datos frescos): se destruye antes de que
+    // `pintarZona` monte uno nuevo, o el viejo se queda apuntando a un canvas suelto.
+    Graficos.destruirTodos();
+    pintarZona(vista);
+    conectar(vista);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -420,7 +427,15 @@ function filaMovimiento(m) {
 // INTERACCIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Delegado en `vista`, así que solo hace falta engancharlo UNA VEZ por montaje de
+ * pantalla — `Api.leer` puede llamar a quien invoca esto dos veces (caché, luego
+ * red), y sin este guardado la segunda pintada duplicaría el listener y el gesto de
+ * deslizar, disparando cada acción dos veces.
+ */
 function conectar(vista) {
+  if (vista._conectado) return;
+  vista._conectado = true;
   const est = Movs.est;
 
   vista.addEventListener('click', async function (e) {

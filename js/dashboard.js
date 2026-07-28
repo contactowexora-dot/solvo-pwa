@@ -57,15 +57,17 @@ App.registrar('dashboard', async function (vista) {
 
   vista.innerHTML = carrilFiltros() + esqueleto();
 
-  const [cat, d] = await Promise.all([
-    Formularios.cargarCatalogos(),
-    Api.llamar('dashboard.datos', Dash.parametros(), { clave: 'dashboard' })
-  ]);
+  const cat = await Formularios.cargarCatalogos();
 
-  est.periodo = est.periodo || d.periodo || cat.periodo_actual;
-
-  await pintar(vista, d);
-  conectar(vista, d);
+  // `Api.leer` pinta al instante lo último guardado en este teléfono y otra vez cuando
+  // responde el servidor (docs/TRASPASO.md §1.H/I) — por eso `pintar`/`conectar`
+  // pueden correr dos veces, y por eso están preparados para eso (ver sus comentarios).
+  await Api.leer('dashboard.datos', Dash.parametros(), { clave: 'dashboard' },
+    async function (d) {
+      est.periodo = est.periodo || d.periodo || cat.periodo_actual;
+      await pintar(vista, d);
+      conectar(vista, d);
+    });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -293,6 +295,10 @@ function abrirFiltros() {
 
 async function pintar(vista, d) {
   const m = d.moneda_base;
+  // Por si esta es la segunda pintada (§14, caché local + revalidación en segundo
+  // plano): los ocho gráficos de la primera quedarían con su canvas desconectado del
+  // documento si no se destruyen antes de montar los nuevos.
+  Graficos.destruirTodos();
   vista.innerHTML = carrilFiltros() +
     bloqueFlujo(d.g1_flujo, m) +
     bloqueGastoCategoria(d.g2_gasto_por_categoria, m) +
@@ -578,37 +584,56 @@ async function montarGraficos(vista, d, m) {
 // INTERACCIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * `pintar()` puede llamar a esto más de una vez por visita —una con datos de caché,
+ * otra con datos frescos (§14: docs/TRASPASO.md §1.H/I)—, y cada vez con instancias de
+ * ECharts NUEVAS en `vista._dashApis` (las viejas ya se destruyeron en `pintar`). Por
+ * eso se separan dos cosas de vida distinta:
+ *
+ *   · El listener delegado en `vista` se engancha UNA sola vez (guardado en
+ *     `vista._conectado`), pero lee `vista._dashDatos` en el momento del click en vez
+ *     de cerrar sobre el `d` de cuando se enganchó — si no, «Ver tabla de flujos»
+ *     seguiría mostrando para siempre los datos de la primera pintada.
+ *   · Los `.on('click', …)` nativos de ECharts SÍ se rehacen en cada llamada: están
+ *     atados a la instancia concreta que `pintar()` acaba de montar, y la anterior ya
+ *     no existe.
+ */
 function conectar(vista, d) {
-  const m = d.moneda_base;
-  // `pintar()` ya montó los gráficos (ECharts en diferido, §9.1) y dejó las instancias aquí:
-  // el click nativo de ECharts trae el `dataIndex` correcto, sin tener que adivinar qué
-  // barra se tocó a partir de coordenadas de píxel.
+  vista._dashDatos = d;
   const apis = vista._dashApis || {};
+  const m = d.moneda_base;
 
-  vista.addEventListener('click', function (e) {
-    if (e.target.closest('[data-al="periodo"]')) return abrirSelectorPeriodo();
-    if (e.target.closest('[data-al="responsable"]')) return abrirSelectorResponsable();
-    if (e.target.closest('[data-al="filtros"]')) return abrirFiltros();
+  if (!vista._conectado) {
+    vista._conectado = true;
+    vista.addEventListener('click', function (e) {
+      const datos = vista._dashDatos;
+      const moneda = datos.moneda_base;
 
-    const seg = e.target.closest('[data-vista-flujo] .segmento');
-    if (seg) return alternarVistaFlujo(vista, seg);
+      if (e.target.closest('[data-al="periodo"]')) return abrirSelectorPeriodo();
+      if (e.target.closest('[data-al="responsable"]')) return abrirSelectorResponsable();
+      if (e.target.closest('[data-al="filtros"]')) return abrirFiltros();
 
-    if (e.target.closest('[data-al="tabla-flujos"]')) {
-      return abrirTablaFlujos(d.g1_flujo, m);
-    }
-    if (e.target.closest('[data-al="todas-categorias"]')) {
-      return abrirTodasCategorias(d.g2_gasto_por_categoria, m);
-    }
+      const seg = e.target.closest('[data-vista-flujo] .segmento');
+      if (seg) return alternarVistaFlujo(vista, seg);
 
-    const marca = e.target.closest('[data-marca]');
-    if (marca) {
-      return abrirDetallePago(d.g5_timeline_pagos.marcadores[Number(marca.dataset.marca)], m);
-    }
+      if (e.target.closest('[data-al="tabla-flujos"]')) {
+        return abrirTablaFlujos(datos.g1_flujo, moneda);
+      }
+      if (e.target.closest('[data-al="todas-categorias"]')) {
+        return abrirTodasCategorias(datos.g2_gasto_por_categoria, moneda);
+      }
 
-    const filaPres = e.target.closest('[data-categoria]');
-    if (filaPres) return UI.avisar('Detalle de categoría llega con la pantalla Presupuesto ' +
-      '(Paso 15).');
-  });
+      const marca = e.target.closest('[data-marca]');
+      if (marca) {
+        return abrirDetallePago(
+          datos.g5_timeline_pagos.marcadores[Number(marca.dataset.marca)], moneda);
+      }
+
+      const filaPres = e.target.closest('[data-categoria]');
+      if (filaPres) return UI.avisar('Detalle de categoría llega con la pantalla Presupuesto ' +
+        '(Paso 15).');
+    });
+  }
 
   if (apis.cascada && d.g8_caja_cascada) {
     // `seriesIndex === 1` es la barra visible; la 0 es el offset transparente y es `silent`,

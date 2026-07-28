@@ -30,6 +30,69 @@ const Api = (function () {
            /network|failed to fetch|load failed/i.test(String(e && e.message));
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CACHÉ LOCAL — velocidad PERCIBIDA, no velocidad real (docs/TRASPASO.md §1.H/I)
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Apps Script tiene un piso de latencia (la redirección obligatoria a
+  // googleusercontent.com + el arranque del propio motor) que ningún código de aquí
+  // puede bajar. Lo que SÍ se puede hacer: no obligar a nadie a mirar un esqueleto de
+  // carga para ver números que ya vio la vez anterior. `leer()` pinta al instante lo
+  // último que se guardó EN ESTE TELÉFONO, y pide lo de verdad por detrás — la espera
+  // del servidor sigue ahí, pero ya no la sufre el usuario mirando la pantalla.
+  //
+  // Deliberadamente en `localStorage`, no en memoria: sobrevive a cerrar la pestaña,
+  // que es justo cuando más se nota — abrir la app y ver el saldo de ayer al instante,
+  // en vez de un esqueleto, mientras se confirma que sigue siendo el mismo.
+
+  const PREFIJO_CACHE_LOCAL = 'solvo.cache:';
+
+  /**
+   * Espejo exacto de la sección «Lectura» de `backend/Router.gs`. Si el backend suma
+   * una acción de lectura ahí, hay que sumarla aquí — si no, sus escrituras (que caen
+   * todas en el `else`, más abajo) la tratarían como sospechosa de haber cambiado algo
+   * y limpiarían la caché local sin necesidad.
+   */
+  const ACCIONES_LECTURA = new Set([
+    'catalogos', 'inicio.resumen', 'dashboard.datos',
+    'movimientos.listar', 'movimientos.detalle', 'cobros.pendientes',
+    'presupuesto.estado', 'productos.listar', 'productos.detalle', 'tarjeta.fechas',
+    'objetivos.listar', 'objetivos.detalle', 'insights.listar', 'acciones.listar',
+    'pendientes.listar', 'suscripciones.listar', 'categorias.listar', 'etiquetas.listar',
+    'reglas.listar', 'caja.estado', 'caja.conceptos', 'plantilla.listar',
+    'responsables.listar', 'feriados.listar'
+  ]);
+
+  function claveCacheLocal_(accion, params) {
+    return PREFIJO_CACHE_LOCAL + accion + ':' + JSON.stringify(params || {});
+  }
+
+  function leerCacheLocal_(clave) {
+    try {
+      const v = localStorage.getItem(clave);
+      return v ? JSON.parse(v) : null;
+    } catch (e) { return null; }
+  }
+
+  function escribirCacheLocal_(clave, datos) {
+    try { localStorage.setItem(clave, JSON.stringify(datos)); }
+    catch (e) { /* modo privado o localStorage lleno: se sigue sin caché local */ }
+  }
+
+  /**
+   * Se llama tras cada escritura exitosa. Más vale de más que servir un dato viejo
+   * (mismo criterio que `Cache.invalidar` en el backend, Manual 2 §9.3): no se intenta
+   * adivinar qué pantallas concretas tocó esta escritura, se limpia toda la caché
+   * local de lectura y que la próxima visita a cada una vuelva a pedir lo suyo.
+   */
+  function limpiarCacheLocal_() {
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf(PREFIJO_CACHE_LOCAL) === 0) localStorage.removeItem(k);
+      });
+    } catch (e) { /* nada que limpiar si localStorage no responde */ }
+  }
+
   /**
    * Llama a una acción del Router.
    * @param {string} accion            p. ej. 'inicio.resumen'
@@ -85,9 +148,12 @@ const Api = (function () {
             { sinRed: true });
         }
         throw new ErrorSolvo(
-          'No pude hablar con el servidor de Solvo. Casi siempre es una de dos: el despliegue ' +
-          'web no está publicado con acceso «Cualquier persona», o API_URL no apunta al ' +
-          'backend.', { despliegue: true, url: cfg.apiUrl() });
+          'No pude hablar con el servidor de Solvo. Casi siempre es que el despliegue web no ' +
+          'está publicado con acceso «Cualquier usuario» — ojo, no vale «Cualquier usuario ' +
+          'con una cuenta de Google».',
+          // El mensaje interno del navegador se guarda para enseñarlo en el panel: pedirle
+          // a alguien que abra DevTools para leer una línea es una barrera innecesaria.
+          { despliegue: true, url: cfg.apiUrl(), interno: String((e && e.message) || e) });
       }
       throw new ErrorSolvo('No pudimos contactar con el servidor. Reintenta.');
     } finally {
@@ -129,7 +195,57 @@ const Api = (function () {
         sinAcceso: /no tiene acceso/i.test(msg)
       });
     }
+    // Cualquier acción que no esté en la lista de lectura se trata como escritura:
+    // más vale limpiar de más que dejar un número viejo pintado en otra pantalla.
+    if (!ACCIONES_LECTURA.has(accion)) limpiarCacheLocal_();
     return json.datos;
+  }
+
+  /**
+   * Como `llamar`, pero para las pantallas que pintan TODO su contenido a partir de
+   * una sola respuesta (Inicio, Movimientos, Productos, Dashboard, Objetivos): si hay
+   * algo guardado en este teléfono de la última vez, `alDatos` se llama con eso de
+   * inmediato —sin esperar red—, y otra vez cuando llega la respuesta real.
+   *
+   * Si los dos resultados son idénticos (el caso común: nada cambió desde la última
+   * visita), `alDatos` NO se vuelve a llamar — repintar con lo mismo solo arriesgaría
+   * un parpadeo o remontar un gráfico sin necesidad.
+   *
+   * @param {Function} alDatos (datos, esFresco) → void. `esFresco` es `false` en la
+   *   llamada instantánea con caché, `true` cuando responde el servidor.
+   * @return {Promise<*>} los datos frescos — o los cacheados, si la red falla y ya se
+   *   había mostrado algo (mejor lo último visto que una pantalla de error).
+   */
+  async function leer(accion, params, opciones, alDatos) {
+    const clave = claveCacheLocal_(accion, params);
+    const cacheado = leerCacheLocal_(clave);
+    let mostroCacheado = false;
+    if (cacheado !== null) {
+      // Se ESPERA a que termine de pintar antes de seguir. `alDatos` suele ser una
+      // función async que monta gráficos (§9.1: ECharts en diferido) — sin este
+      // `await`, la llamada de red de abajo podía resolver ANTES de que la pintada
+      // con caché terminara, y las dos pintadas se pisaban: la fresca destruía
+      // gráficos que la de caché todavía no había montado, o al revés.
+      await alDatos(cacheado, false);
+      mostroCacheado = true;
+    }
+
+    try {
+      const datos = await llamar(accion, params, opciones);
+      escribirCacheLocal_(clave, datos);
+      if (!mostroCacheado || JSON.stringify(datos) !== JSON.stringify(cacheado)) {
+        await alDatos(datos, true);
+      }
+      return datos;
+    } catch (e) {
+      // Con algo ya en pantalla, un fallo de red silencioso no debe tumbarla: se
+      // avisa aparte y se conserva lo que se veía. Sin nada mostrado, el error sigue
+      // su curso normal (la pantalla lo muestra, como hoy).
+      if (mostroCacheado && (e && (e.sinRed || esFalloDeRed(e) || e.cancelada))) {
+        return cacheado;
+      }
+      throw e;
+    }
   }
 
   /** Varias acciones en paralelo. Devuelve un objeto con las mismas claves. */
@@ -152,7 +268,8 @@ const Api = (function () {
     return salida;
   }
 
-  return { llamar: llamar, varias: varias, esFalloDeRed: esFalloDeRed };
+  return { llamar: llamar, leer: leer, varias: varias, esFalloDeRed: esFalloDeRed,
+            _limpiarCacheLocal: limpiarCacheLocal_ };
 })();
 
 /**

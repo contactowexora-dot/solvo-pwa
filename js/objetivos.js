@@ -27,10 +27,21 @@ const Obj = (function () {
 
 App.registrar('objetivos', async function (vista) {
   vista.innerHTML = esqueleto();
-  const d = await Api.llamar('objetivos.listar', {}, { clave: 'objetivos' });
-  Obj.est.datos = d;
-  pintar(vista);
-  conectar(vista);
+
+  // `pintar()` necesita `Formularios.catalogos()` para la moneda base. Nada garantiza
+  // que ya estén cargados: se llega aquí desde el menú de perfil, y esa ruta puede ser
+  // la primera pantalla de la sesión en pedir catálogos (a diferencia de Movimientos,
+  // Productos y Dashboard, que ya los piden ellos mismos).
+  await Formularios.cargarCatalogos();
+
+  // `Api.leer` pinta al instante lo último guardado en este teléfono y otra vez cuando
+  // responde el servidor (docs/TRASPASO.md §1.H/I) — por eso puede llamar a esta
+  // función dos veces, y por eso `conectar` está protegido para engancharse una sola.
+  await Api.leer('objetivos.listar', {}, { clave: 'objetivos' }, function (d) {
+    Obj.est.datos = d;
+    pintar(vista);
+    conectar(vista);
+  });
 }, 'Objetivos');
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -163,7 +174,15 @@ function tarjetaObjetivo(o, m) {
 // INTERACCIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * El click delegado se engancha una sola vez por montaje de pantalla — `Api.leer`
+ * (§14) puede llamar a quien invoca esto dos veces (caché, luego red), y sin este
+ * guardado la segunda pintada duplicaría el listener.
+ */
 function conectar(vista) {
+  if (vista._conectado) return;
+  vista._conectado = true;
+
   vista.addEventListener('click', async function (e) {
     if (e.target.closest('[data-al="agregar"]')) {
       return abrirYRecargar(function () { return App.abrirFormulario('objetivo'); });
@@ -420,7 +439,17 @@ function abrirReiniciar(d) {
 // GESTO DE DESLIZAR (§10.4), adaptado de `movimientos.js` a la tarjeta completa
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Guardado por dentro, no solo por quien llama: se invoca tanto al montar la pantalla
+ * como al cambiar de división (`conectar`) y, con la caché local (§14), puede llegar a
+ * pedirse dos veces para el mismo montaje. Sin este guardado, cada llamada de más
+ * suma otro juego de listeners de puntero sobre el mismo `vista`, y un solo gesto
+ * dispararía la acción tantas veces como se hubiera enganchado.
+ */
 function gestoDeslizarObjetivo(vista) {
+  if (vista._gestoDeslizarListo) return;
+  vista._gestoDeslizarListo = true;
+
   const UMBRAL = 72, ANCLA = 96, VEL = 0.11;
   let card = null, carril = null, x0 = 0, y0 = 0, dx = 0;
   let decidido = false, capturado = false, puntero = null;
@@ -509,6 +538,11 @@ function pintarVacio(vista) {
     texto: 'Un viaje, un fondo de emergencia, lo que sea que estés ahorrando.',
     cta: { texto: 'Crear objetivo', accion: 'objetivo' }
   });
+
+  // Guardado aparte de `_conectado` (el de `conectar`): con caché local (§14) esta
+  // función puede volver a pintarse una segunda vez si el estado seguía vacío.
+  if (vista._vacioConectado) return;
+  vista._vacioConectado = true;
   vista.addEventListener('click', async function (e) {
     const b = e.target.closest('[data-accion]');
     if (!b) return;

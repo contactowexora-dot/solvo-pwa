@@ -19,20 +19,27 @@
 
 App.registrar('productos', async function (vista) {
   vista.innerHTML = esqueleto();
+  let ultimoD = null;
+  let variacionActual = null;
 
-  // El patrimonio con su variación necesita dos llamadas: `productos.listar` para el
-  // detalle de cada producto, y `dashboard.datos` (2 meses) para la variación del
-  // patrimonio, que ya calcula `Agregados.g3Patrimonio_` y no tiene sentido duplicar
-  // aquí. Si la segunda falla, la cifra se muestra igual, solo sin la píldora.
-  const [d, variacion] = await Promise.all([
-    Api.llamar('productos.listar', {}, { clave: 'productos' }),
-    Api.llamar('dashboard.datos', { meses: 2 }, { clave: 'productos-var' })
-      .then(function (r) { return r.g3_patrimonio; })
-      .catch(function () { return null; })
-  ]);
+  // La variación del patrimonio (`dashboard.datos`, 2 meses) es un extra que NO debe
+  // retrasar lo principal: se pide aparte, y si llega —o llega tarde— se repinta
+  // encima de lo que ya esté en pantalla. Si falla, la cifra se ve igual, sin píldora.
+  Api.llamar('dashboard.datos', { meses: 2 }, { clave: 'productos-var' })
+    .then(function (r) {
+      variacionActual = r.g3_patrimonio;
+      if (ultimoD && variacionActual) { pintar(vista, ultimoD, variacionActual); conectar(vista); }
+    })
+    .catch(function () { /* sin variación, la cifra sigue mostrándose igual */ });
 
-  pintar(vista, d, variacion);
-  conectar(vista, d);
+  // `Api.leer` pinta al instante lo último guardado en este teléfono y otra vez cuando
+  // responde el servidor (docs/TRASPASO.md §1.H/I) — por eso puede llamar a esta
+  // función dos veces, y por eso `conectar` está protegido para engancharse una sola.
+  await Api.leer('productos.listar', {}, { clave: 'productos' }, function (d) {
+    ultimoD = d;
+    pintar(vista, d, variacionActual);
+    conectar(vista);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -257,20 +264,22 @@ function bloqueObjetivosResumen(o, m) {
 // INTERACCIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function conectar(vista, d) {
+/**
+ * Delegado en `vista`, así que solo hace falta engancharlo UNA VEZ por montaje de
+ * pantalla — `Api.leer` (y la variación de patrimonio que llega por su cuenta) pueden
+ * llamar a quien invoca esto varias veces, y sin este guardado cada repintado
+ * duplicaría el listener y cada tap dispararía la acción tantas veces como pintadas.
+ */
+function conectar(vista) {
+  if (vista._conectado) return;
+  vista._conectado = true;
+
   vista.addEventListener('click', async function (e) {
     if (e.target.closest('[data-al="agregar"]')) return abrirSelectorTipo();
     if (e.target.closest('[data-al="objetivos"]')) return App.ir('objetivos');
 
     const det = e.target.closest('[data-detalle]');
     if (det) return abrirDetalle(det.dataset.detalle);
-  });
-
-  vista.querySelectorAll('[data-nuevo], [data-accion]').forEach(function (b) {
-    b.addEventListener('click', async function () {
-      try { await App.abrirFormulario(b.dataset.nuevo || b.dataset.accion); }
-      catch (e) { UI.avisarError(e); }
-    });
   });
 }
 
@@ -424,6 +433,12 @@ function pintarVacio(vista) {
   vista.querySelector('.vacio').insertAdjacentHTML('beforeend',
     '<button class="btn btn-secundario pulsable" data-accion="tarjeta">' +
     UI.ico('credit-card', 'ico-16') + 'O una tarjeta</button>');
+
+  // Guardado aparte de `_conectado` (que usa el listener de `conectar`): con caché
+  // local, `pintar` puede volver a caer aquí en la segunda pintada si el estado
+  // seguía vacío, y sin esto el botón dispararía el formulario dos veces.
+  if (vista._vacioConectado) return;
+  vista._vacioConectado = true;
   vista.addEventListener('click', async function (e) {
     const b = e.target.closest('[data-accion]');
     if (!b) return;

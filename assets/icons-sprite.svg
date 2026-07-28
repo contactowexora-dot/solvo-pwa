@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
   <!--
     GENERADO POR tools/generar-sprite.mjs — NO EDITAR A MANO.
-    Lucide v1.27.0 · 160 íconos · nombres leídos de 03-SOLVO-UI-SISTEMA.md §6.
+    Lucide v1.27.0 · 165 íconos · nombres leídos de 03-SOLVO-UI-SISTEMA.md §6.
     Uso: <svg class="ico"><use href="#i-wallet"/></svg>
   -->
   <symbol id="i-armchair" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -472,6 +472,13 @@
     <path d="M22 10v6" />
     <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
   </symbol>
+  <symbol id="i-guitar" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m11.9 12.1 4.514-4.514" />
+    <path d="M20.1 2.3a1 1 0 0 0-1.4 0l-1.114 1.114A2 2 0 0 0 17 4.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 17.828 7h1.344a2 2 0 0 0 1.414-.586L21.7 5.3a1 1 0 0 0 0-1.4z" />
+    <path d="m6 16 2 2" />
+    <path d="M8.23 9.85A3 3 0 0 1 11 8a5 5 0 0 1 5 5 3 3 0 0 1-1.85 2.77l-.92.38A2 2 0 0 0 12 18a4 4 0 0 1-4 4 6 6 0 0 1-6-6 4 4 0 0 1 4-4 2 2 0 0 0 1.85-1.23z" />
+  </symbol>
   <symbol id="i-hammer" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="m15 12-9.373 9.373a1 1 0 0 1-3.001-3L12 9" />
@@ -517,6 +524,11 @@
   <symbol id="i-hexagon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+  </symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+    <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
   </symbol>
   <symbol id="i-house" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -578,6 +590,11 @@
     <path d="m9.17 14.83-4.24 4.24" />
     <circle cx="12" cy="12" r="4" />
   </symbol>
+  <symbol id="i-line-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+    <path d="m19 9-5 5-4-4-3 3" />
+  </symbol>
   <symbol id="i-list-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M2 5h20" />
@@ -619,6 +636,10 @@
   <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />
+  </symbol>
+  <symbol id="i-mountain" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m8 3 4 8 5-5 5 15H2L8 3z" />
   </symbol>
   <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -832,6 +853,14 @@
     <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
     <path d="M9 12h6" />
     <path d="M12 9v6" />
+  </symbol>
+  <symbol id="i-ship" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 10.189V14" />
+    <path d="M12 2v3" />
+    <path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6" />
+    <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76" />
+    <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
   </symbol>
   <symbol id="i-shirt" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">

@@ -24,27 +24,45 @@ let _periodoInicio = null;
 
 App.registrar('inicio', async function (vista) {
   vista.innerHTML = esqueleto();
+  let primeraVez = true;
 
-  const d = await Api.llamar('inicio.resumen',
-    _periodoInicio ? { periodo: _periodoInicio } : {}, { clave: 'inicio' });
-  _periodoInicio = d.periodo;
+  // `Api.leer` pinta al instante lo último que se guardó en este teléfono (si algo
+  // había) y otra vez cuando responde el servidor — Apps Script sigue tardando lo
+  // mismo, pero la espera ya no la sufre quien mira la pantalla (docs/TRASPASO.md
+  // §1.H/I). Por eso este callback puede correr dos veces: una con datos de caché,
+  // otra con datos frescos, y por eso `conectar` está protegido para engancharse una
+  // sola vez aunque se llame las dos.
+  await Api.leer('inicio.resumen',
+    _periodoInicio ? { periodo: _periodoInicio } : {}, { clave: 'inicio' },
+    function (d) {
+      _periodoInicio = d.periodo;
 
-  // Antes del `return` del estado vacío: si no, al pasar a un periodo sin acciones la
-  // campana se queda con el número del anterior y pide atención sobre algo que ya no existe.
-  App.marcarAcciones(d.acciones_pendientes);
+      // Antes del `return` del estado vacío: si no, al pasar a un periodo sin acciones
+      // la campana se queda con el número del anterior y pide atención sobre algo que
+      // ya no existe.
+      App.marcarAcciones(d.acciones_pendientes);
 
-  if (d.sin_datos) { pintarVacio(vista); return; }
+      // Por si esta es la segunda pintada (datos frescos distintos de los de caché):
+      // el gráfico viejo quedaría con su canvas desconectado del documento.
+      Graficos.destruirTodos();
 
-  const m = d.moneda_base;
-  vista.innerHTML =
-    heroCard(d, m) +
-    seccionInsights(d.insights) +
-    seccionPendientes(d.pendientes_registro, m) +
-    seccionPagos(d.proximos_pagos, m) +
-    seccionRecientes(d.movimientos_recientes, m);
+      if (d.sin_datos) { pintarVacio(vista); conectar(vista); return; }
 
-  conectar(vista, d, m);
-  escalonar(vista);
+      const m = d.moneda_base;
+      vista.innerHTML =
+        heroCard(d, m) +
+        seccionInsights(d.insights) +
+        seccionPendientes(d.pendientes_registro, m) +
+        seccionPagos(d.proximos_pagos, m) +
+        seccionRecientes(d.movimientos_recientes, m);
+
+      conectar(vista);
+      montarG1(vista.querySelector('[data-g1]'), d.hero.serie, m);
+      gestoPeriodo(vista.querySelector('[data-hero]'));
+
+      if (primeraVez) escalonar(vista);
+      primeraVez = false;
+    });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -257,11 +275,16 @@ function seccionRecientes(items, m) {
 // INTERACCIÓN
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function conectar(vista, d, m) {
-  // El gráfico se monta después de pintar: la cifra ya está en pantalla y ECharts puede
-  // tardar lo que necesite sin bloquear nada (§9.2).
-  const caja = vista.querySelector('[data-g1]');
-  if (caja) montarG1(caja, d.hero.serie, m);
+/**
+ * El listener delegado en `vista` sirve para todo lo que venga después, así que solo
+ * hace falta engancharlo UNA VEZ por montaje de pantalla — `Api.leer` puede llamar a
+ * quien lo invoca dos veces (caché, luego red), y `vista` es el mismo nodo las dos.
+ * Sin este guardado, la segunda pintada duplicaría el listener y cada tap dispararía
+ * la acción dos veces.
+ */
+function conectar(vista) {
+  if (vista._conectado) return;
+  vista._conectado = true;
 
   vista.addEventListener('click', function (e) {
     const dest = e.target.closest('[data-al]');
@@ -276,8 +299,6 @@ function conectar(vista, d, m) {
     const ins = e.target.closest('[data-insight]');
     if (ins) return UI.avisar('La pantalla de Insights llega en el Paso 14.');
   });
-
-  gestoPeriodo(vista.querySelector('[data-hero]'));
 }
 
 function irA(destino) {
