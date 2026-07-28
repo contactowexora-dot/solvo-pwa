@@ -503,11 +503,26 @@ function abrirAsistente() {
 
       if (e.target.closest('[data-atras]')) { est.paso--; render(); return; }
 
-      if (e.target.closest('[data-siguiente]')) {
+      const btnSiguiente = e.target.closest('[data-siguiente]');
+      if (btnSiguiente) {
+        // Al pasar a la vista previa se espera la respuesta de `plantilla.probar` ANTES
+        // de repintar — mientras tanto la pantalla se queda con el paso anterior en
+        // pantalla, botón incluido. Sin desactivarlo aquí mismo, un segundo toque
+        // durante esa espera vuelve a entrar a este manejador con `est.paso` ya
+        // avanzado, y lo que el usuario ve como «un segundo clic» termina disparando
+        // el paso SIGUIENTE al que cree estar confirmando.
+        if (btnSiguiente.disabled) return;
+
         if (est.paso === 1) leerCamposPaso1();
         if (est.paso === 3) { await guardar(); return; }
         est.paso++;
-        if (est.paso === 3) { await cargarVistaPrevia(); render(); return; }
+        if (est.paso === 3) {
+          btnSiguiente.disabled = true;
+          btnSiguiente.textContent = 'Cargando…';
+          await cargarVistaPrevia();
+          render();
+          return;
+        }
         render();
         return;
       }
