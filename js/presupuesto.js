@@ -203,7 +203,10 @@ function conectar(vista) {
     if (e.target.closest('[data-al="agregar-limite"]')) {
       // Cualquier categoría de gasto, no solo las que ya tienen consumo este periodo —
       // sin esto no había forma de presupuestar una categoría antes de gastar en ella.
-      Formularios.elegirCategoria('GASTO', null, function (idCat) {
+      // Se usa un selector propio (no `Formularios.elegirCategoria`): el presupuesto
+      // reparte por categoría PRINCIPAL, nunca por subcategoría, y ese selector obliga
+      // a bajar a una subcategoría en cuanto la categoría tiene alguna.
+      abrirSelectorCategoriaGasto(function (idCat) {
         if (categoriaPorId(idCat)) {
           return UI.avisar('Esa categoría ya tiene un presupuesto asignado.', { error: true });
         }
@@ -252,6 +255,36 @@ async function guardarLimite(idCategoria, monto, esRecurrente) {
     UI.avisar(monto > 0 ? 'Presupuesto guardado' : 'Límite quitado');
     repintarActual();
   } catch (err) { UI.avisarError(err); }
+}
+
+/**
+ * Selector de categoría de gasto SIN bajar a subcategoría — el presupuesto reparte
+ * por categoría principal (Manual 1 §8.4). `Formularios.elegirCategoria` no sirve
+ * aquí: en cuanto una categoría tiene subcategorías, obliga a elegir una de ellas y
+ * no deja seleccionar la categoría sola.
+ */
+function abrirSelectorCategoriaGasto(alElegir) {
+  const cats = Formularios.categoriasDe('GASTO');
+  const hoja = UI.abrirHoja({
+    titulo: 'Categoría',
+    html: '<ul class="pila pila-1">' + cats.map(function (c) {
+      return '<li><button type="button" class="fila pulsable fila-opcion" data-cat="' +
+        UI.esc(c.id_categoria) + '">' +
+        '<span class="ico-cat ico-cat-sm" style="--color-cat:' + UI.esc(c.color) + '">' +
+          UI.ico(c.icono) + '</span>' +
+        '<span class="crece t-card-title" style="text-align:left">' + UI.esc(c.nombre) +
+          '</span>' +
+      '</button></li>';
+    }).join('') + '</ul>',
+    alAbrir: function (raiz) {
+      raiz.addEventListener('click', function (e) {
+        const b = e.target.closest('[data-cat]');
+        if (!b) return;
+        hoja.cerrar();
+        alElegir(b.dataset.cat);
+      });
+    }
+  });
 }
 
 function abrirAsignarLimite(cat) {

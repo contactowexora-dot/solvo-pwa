@@ -21,9 +21,14 @@
 
 /** Periodo mostrado. Vive fuera del render porque sobrevive a los repintados. */
 let _periodoInicio = null;
+/** La `vista` del último montaje — sirve para repintar sin pasar por el esqueleto tras
+ *  registrar o descartar un pendiente (docs/TRASPASO.md §1, mismo motivo que Objetivos
+ *  y Control de caja). */
+let _vistaInicio = null;
 
 App.registrar('inicio', async function (vista) {
   vista.innerHTML = esqueleto();
+  _vistaInicio = vista;
   let primeraVez = true;
 
   // `Api.leer` pinta al instante lo último que se guardó en este teléfono (si algo
@@ -35,35 +40,50 @@ App.registrar('inicio', async function (vista) {
   await Api.leer('inicio.resumen',
     _periodoInicio ? { periodo: _periodoInicio } : {}, { clave: 'inicio' },
     function (d) {
-      _periodoInicio = d.periodo;
-
-      // Antes del `return` del estado vacío: si no, al pasar a un periodo sin acciones
-      // la campana se queda con el número del anterior y pide atención sobre algo que
-      // ya no existe.
-      App.marcarAcciones(d.acciones_pendientes);
-
-      // Por si esta es la segunda pintada (datos frescos distintos de los de caché):
-      // el gráfico viejo quedaría con su canvas desconectado del documento.
-      Graficos.destruirTodos();
-
-      if (d.sin_datos) { pintarVacio(vista); conectar(vista); return; }
-
-      const m = d.moneda_base;
-      vista.innerHTML =
-        heroCard(d, m) +
-        seccionInsights(d.insights) +
-        seccionPendientes(d.pendientes_registro, m) +
-        seccionPagos(d.proximos_pagos, m) +
-        seccionRecientes(d.movimientos_recientes, m);
-
-      conectar(vista);
-      montarG1(vista.querySelector('[data-g1]'), d.hero.serie, m);
-      gestoPeriodo(vista.querySelector('[data-hero]'));
-
-      if (primeraVez) escalonar(vista);
+      pintarInicio(vista, d, primeraVez);
       primeraVez = false;
     });
 });
+
+function pintarInicio(vista, d, primeraVez) {
+  _periodoInicio = d.periodo;
+
+  // Antes del `return` del estado vacío: si no, al pasar a un periodo sin acciones
+  // la campana se queda con el número del anterior y pide atención sobre algo que
+  // ya no existe.
+  App.marcarAcciones(d.acciones_pendientes);
+
+  // Por si esta es la segunda pintada (datos frescos distintos de los de caché):
+  // el gráfico viejo quedaría con su canvas desconectado del documento.
+  Graficos.destruirTodos();
+
+  if (d.sin_datos) { pintarVacio(vista); conectar(vista); return; }
+
+  const m = d.moneda_base;
+  vista.innerHTML =
+    heroCard(d, m) +
+    seccionInsights(d.insights) +
+    seccionPendientes(d.pendientes_registro, m) +
+    seccionPagos(d.proximos_pagos, m) +
+    seccionRecientes(d.movimientos_recientes, m);
+
+  conectar(vista);
+  montarG1(vista.querySelector('[data-g1]'), d.hero.serie, m);
+  gestoPeriodo(vista.querySelector('[data-hero]'));
+
+  if (primeraVez) escalonar(vista);
+}
+
+/** Refresca en silencio, sin el parpadeo de esqueleto de `App.recargar()`. */
+function refrescarInicioSilencioso() {
+  if (!_vistaInicio || !_vistaInicio.isConnected) return;
+  Api.leer('inicio.resumen', _periodoInicio ? { periodo: _periodoInicio } : {},
+    { clave: 'inicio' }, function (d) { pintarInicio(_vistaInicio, d, false); })
+    .catch(function () { /* lo que ya está en pantalla sigue siendo válido */ });
+}
+
+// Puente para `form-pendiente.js` (único consumidor de esta acción hoy).
+window.SolvoInicio = { refrescarSilencioso: refrescarInicioSilencioso };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HERO (§8.1 · G1)
@@ -294,7 +314,7 @@ function conectar(vista) {
     if (mov) return UI.avisar('El detalle de movimiento llega en el Paso 12.');
 
     const pnd = e.target.closest('[data-pendiente]');
-    if (pnd) return UI.avisar('El registro desde un correo llega en el Paso 11.');
+    if (pnd) return abrirPendienteRegistro(pnd.dataset.pendiente);
 
     const ins = e.target.closest('[data-insight]');
     if (ins) return UI.avisar('La pantalla de Insights llega en el Paso 14.');
