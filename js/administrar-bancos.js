@@ -317,7 +317,18 @@ function abrirAsistente() {
     return ['Tipo de movimiento', 'Correo de ejemplo', 'Marcar los campos', 'Vista previa'][est.paso];
   }
 
+  /**
+   * Conserva foco y cursor a través de `render()`. `el.innerHTML = ...` destruye y
+   * vuelve a crear TODOS los campos: sin esto, cualquier repintado durante el paso 1 o
+   * 2 —cambiar de tipo, marcar un campo, o el que dispare `render()` de nuevo— saca a
+   * la persona del campo en el que estaba escribiendo.
+   */
   function render() {
+    const activo = document.activeElement;
+    const idActivo = (activo && el.contains(activo) && activo.id) || null;
+    const seleccion = (idActivo && typeof activo.selectionStart === 'number')
+      ? { inicio: activo.selectionStart, fin: activo.selectionEnd } : null;
+
     el.innerHTML =
       '<header class="formulario-cab">' +
         '<button type="button" class="btn-icono pulsable" data-al="cerrar" aria-label="Cerrar">' +
@@ -337,6 +348,16 @@ function abrirAsistente() {
         '</button>' +
       '</div></footer>';
     conectarPaso();
+
+    if (idActivo) {
+      const nuevo = el.querySelector('#' + idActivo);
+      if (nuevo) {
+        nuevo.focus({ preventScroll: true });
+        if (seleccion && typeof nuevo.setSelectionRange === 'function') {
+          nuevo.setSelectionRange(seleccion.inicio, seleccion.fin);
+        }
+      }
+    }
   }
 
   function avanzarDeshabilitado() {
