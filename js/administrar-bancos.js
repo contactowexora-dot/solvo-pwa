@@ -537,15 +537,27 @@ function abrirAsistente() {
 
         if (est.paso === 1) leerCamposPaso1();
         if (est.paso === 3) { await guardar(); return; }
+
+        const pasoAnterior = est.paso;
         est.paso++;
-        if (est.paso === 3) {
-          btnSiguiente.disabled = true;
-          btnSiguiente.textContent = 'Cargando…';
-          await cargarVistaPrevia();
+        try {
+          if (est.paso === 3) {
+            btnSiguiente.disabled = true;
+            btnSiguiente.textContent = 'Cargando…';
+            await cargarVistaPrevia();
+          }
           render();
-          return;
+        } catch (err) {
+          // Sin este `catch`, un error al construir el paso siguiente dejaba `est.paso`
+          // ya avanzado pero la pantalla intacta en el paso anterior — sin ningún
+          // aviso. Eso es justo lo que hacía parecer que «el primer clic no hace
+          // nada»: el segundo clic entraba con el paso YA adelantado, dos pasos por
+          // delante de lo que la pantalla mostraba.
+          est.paso = pasoAnterior;
+          btnSiguiente.disabled = false;
+          btnSiguiente.textContent = 'Siguiente';
+          UI.avisarError(err);
         }
-        render();
         return;
       }
 

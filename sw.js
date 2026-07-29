@@ -17,7 +17,7 @@
  *    Por eso la puerta de acceso es la única pantalla que exige estar en línea.
  */
 
-const VERSION = 'solvo-cascaron-v15.2.3';
+const VERSION = 'solvo-cascaron-v15.2.4';
 
 /* Todo con ./ para que funcione bajo el subdirectorio de GitHub Pages
    (usuario.github.io/repo/), donde la raíz absoluta «/» no es la de la app. */
