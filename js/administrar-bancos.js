@@ -91,7 +91,7 @@ function pintarVacioInline() {
 const NOMBRE_TIPO = { GASTO: 'Gasto', INGRESO: 'Ingreso', SEGUN_CORREO: 'Según el correo' };
 
 function listaPlantillas(items) {
-  return '<div class="pila pila-3" data-lista>' + items.map(function (p) {
+  return '<div class="pila pila-3" data-lista>' + (items || []).map(function (p) {
     return '<button class="tarjeta pulsable" style="width:100%;text-align:left" ' +
       'data-plantilla="' + UI.esc(p.id_plantilla) + '">' +
       '<div class="fila">' +
@@ -385,7 +385,7 @@ function abrirAsistente() {
   }
 
   function camposCompletos() {
-    const campos = CAMPOS_POR_TIPO[est.tipo];
+    const campos = CAMPOS_POR_TIPO[est.tipo] || CAMPOS_POR_TIPO.GASTO;
     for (let i = 0; i < campos.length; i++) {
       const clave = campos[i][0];
       if (OBLIGATORIOS[clave] && !est.marcas[clave]) return false;
@@ -453,7 +453,7 @@ function abrirAsistente() {
   // ── Paso 2 ──────────────────────────────────────────────────────────────────
   function cuerpoPaso2() {
     const texto = normalizarTextoCorreo(est.correo_ejemplo);
-    const campos = CAMPOS_POR_TIPO[est.tipo];
+    const campos = CAMPOS_POR_TIPO[est.tipo] || CAMPOS_POR_TIPO.GASTO;
     return '<p class="t-body txt-2">Selecciona con el mouse el fragmento del correo y toca el ' +
         'campo que corresponde. El sistema aprende el resto solo.</p>' +
       '<div class="tarjeta tarjeta-plana" style="max-height:220px;overflow:auto">' +
@@ -491,7 +491,7 @@ function abrirAsistente() {
     if (!est.previa) return '<div class="hueso" style="height:120px"></div>';
     const p = est.previa;
     return '<div class="tarjeta tarjeta-plana pila pila-1">' +
-        p.resumen.split('\n').map(function (linea) {
+        String(p.resumen || '').split('\n').map(function (linea) {
           return '<p class="t-body">' + UI.esc(linea) + '</p>';
         }).join('') +
       '</div>' +
