@@ -306,6 +306,21 @@ function abrirAsistente() {
     previa: null, guardando: false
   };
 
+  // El botón «Siguiente»/«Atrás» ocupa el MISMO lugar en las 4 pantallas. Un doble
+  // toque rápido —muy natural cuando no se está seguro de si el primero registró—
+  // hace que el segundo toque, dispatchado sobre esas mismas coordenadas, caiga sobre
+  // el botón de la pantalla NUEVA (la que ya cambió con el primer toque) y avance un
+  // paso de más: se ve como «un toque no hizo nada, dos saltaron dos pasos», pero en
+  // realidad cada toque avanzó uno solo. Este enfriamiento absorbe el segundo toque.
+  let ultimoAvancePaso = 0;
+  const ENFRIAMIENTO_PASO_MS = 500;
+  function puedeAvanzarPaso() {
+    const ahora = Date.now();
+    if (ahora - ultimoAvancePaso < ENFRIAMIENTO_PASO_MS) return false;
+    ultimoAvancePaso = ahora;
+    return true;
+  }
+
   function cerrar() {
     document.body.style.overflow = scrollPrevio;
     el.dataset.saliendo = 'true';
@@ -501,7 +516,10 @@ function abrirAsistente() {
     el.addEventListener('click', async function (e) {
       if (e.target.closest('[data-al="cerrar"]')) { cerrar(); return; }
 
-      if (e.target.closest('[data-atras]')) { est.paso--; render(); return; }
+      if (e.target.closest('[data-atras]')) {
+        if (!puedeAvanzarPaso()) return;
+        est.paso--; render(); return;
+      }
 
       const btnSiguiente = e.target.closest('[data-siguiente]');
       if (btnSiguiente) {
@@ -512,6 +530,10 @@ function abrirAsistente() {
         // avanzado, y lo que el usuario ve como «un segundo clic» termina disparando
         // el paso SIGUIENTE al que cree estar confirmando.
         if (btnSiguiente.disabled) return;
+        // Y el enfriamiento de arriba cubre el caso general: el botón está en el
+        // mismo lugar en las 4 pantallas, así que un doble toque físico puede caer,
+        // el segundo, sobre el botón de la pantalla siguiente en vez de repetir esta.
+        if (!puedeAvanzarPaso()) return;
 
         if (est.paso === 1) leerCamposPaso1();
         if (est.paso === 3) { await guardar(); return; }
